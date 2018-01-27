@@ -27,15 +27,15 @@
 
 <p>Simple text mode programs can print (or write) and read. (Run this program by typing 'lua name' on the console.)</p>
 
-<code>
+<pre>
 print('What is your name?)
 name = read()
 print('Hello', name)
-</code>
+</pre>
 
 <p>Simple graphics mode programs expect an update function (to update state) and a draw function (to draw the screen using graphics APIs). (Run this program by typing 'lua test' on the console.)</p>
 
-<code>
+<pre>
 x = 0
 y = 0
 dx = 2
@@ -52,7 +52,7 @@ function draw()
   clear(9)
   rect(x-5, y-5, 10, 10, 11)
 end
-</code>
+</pre>
 
 <p>On the console, you can also try some simple commands such as 'echo a b c' or 'cat' (type 'exit' to exit cat).</p>
 
