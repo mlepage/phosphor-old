@@ -77,7 +77,7 @@ module.exports = {
     canvas.setAttribute('tabindex', '0'); // allow focus
     canvas.style.outline = 'none'; // no focus outline
     
-    document.body.appendChild(canvas);
+    document.body.insertBefore(canvas, document.body.childNodes[0]);
     canvas.focus();
     
     const ctx = canvas.getContext('2d');
