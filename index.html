@@ -9,5 +9,56 @@
 
 <script src='page-bsp.js'></script>
 
+<h1>Simple Computer (Under Construction)</h1>
+
+<p>A simple online microcomputer, inspired by:</p>
+
+<ul>
+  <li>Commodore 64 (BASIC and games)</li>
+  <li>Unix / Linux / Raspberry Pi (terminal and shell)</li>
+  <li>LÖVE (Lua engine for 2D games)</li>
+  <li>PICO-8 (and similar fantasy consoles)</li>
+  <li>Game Boy (simple games)</li>
+</ul>
+
+<p>Type commands in the console. Hit ESCAPE to toggle edit mode on and off, or CTRL-1 through CTRL-5 to go directly to the editors. Only the code editor works right now. CTRL-` will get you to the console.</p>
+
+<p>You can type a Lua program in the code editor (CTRL-1) and in the console (CTRL-`) type 'lua' to run it.</p>
+
+<p>Simple text mode programs can print (or write) and read. (Run this program by typing 'lua name' on the console.)</p>
+
+<code>
+print('What is your name?)
+name = read()
+print('Hello', name)
+</code>
+
+<p>Simple graphics mode programs expect an update function (to update state) and a draw function (to draw the screen using graphics APIs). (Run this program by typing 'lua test' on the console.)</p>
+
+<code>
+x = 0
+y = 0
+dx = 2
+dy = 1
+
+function update()
+  x = x+dx
+  y = y+dy
+  if (x <= 0 or 192 <= x) then dx = -dx end
+  if (y <= 0 or 128 <= y) then dy = -dy end
+end
+
+function draw()
+  clear(9)
+  rect(x-5, y-5, 10, 10, 11)
+end
+</code>
+
+<p>On the console, you can also try some simple commands such as 'echo a b c' or 'cat' (type 'exit' to exit cat).</p>
+
+<p>Currently only one program can be edited in the code editor. It will auto save in the simple microcomputer. To save it locally to the host OS, type 'export' on the console. To load a Lua program from the host OS, type 'import' on the console.</p>
+
+<p>There are issues. Command lines don't like being multiline, there's no copy/paste, etc. It's coming. Lots planned.</p>
+
 </body>
 </html>
