@@ -14,51 +14,74 @@
 <p>A simple online microcomputer, inspired by:</p>
 
 <ul>
-  <li>Commodore 64 (BASIC and games)</li>
-  <li>Unix / Linux / Raspberry Pi (terminal and shell)</li>
+  <li>Commodore 64 (BASIC programming language and games)</li>
+  <li>LOGO (programmable pen turtle graphics)</li>
+  <li>Unix / Linux / Raspberry Pi (terminal, shell, filesystem, text programming)</li>
   <li>LÖVE (Lua engine for 2D games)</li>
-  <li>PICO-8 (and similar fantasy consoles)</li>
-  <li>Game Boy (simple games)</li>
+  <li>PICO-8 (and similar fantasy consoles with builtin editors)</li>
+  <li>Game Boy (simple games with simple controls)</li>
 </ul>
 
-<p>Type commands in the console. Hit ESCAPE to toggle edit mode on and off, or CTRL-1 through CTRL-5 to go directly to the editors. Only the code editor works right now. CTRL-` will get you to the console.</p>
+<h1>Instructions</h1>
 
-<p>You can type a Lua program in the code editor (CTRL-1) and in the console (CTRL-`) type 'lua' to run it.</p>
+<p>Type commands in the console (command line). Hit ESCAPE to toggle edit mode on and off, or CTRL-1 through CTRL-5 to go directly to the editors (code, sprite, map, sound, music; only the code editor works right now). Hit CTRL-` to go directly to the console.</p>
 
-<p>Simple text mode programs can print (or write) and read. (Run this program by typing 'lua name' on the console.)</p>
+<p>You can type a Lua program in the code editor (CTRL-1) and in the console (CTRL-`) type 'run' to run it.</p>
+
+<p>Type 'load hello' then 'run' to load and run this simple demo text program:</p>
 
 <pre>
-print('What is your name?)
+-- hello (demo)
+write('What is your name? ')
 name = read()
 print('Hello', name)
 </pre>
 
-<p>Simple graphics mode programs expect an update function (to update state) and a draw function (to draw the screen using graphics APIs). (Run this program by typing 'lua test' on the console.)</p>
+<p>Type 'load bounce' then 'run' to load and run this simple demo graphics program:</p>
 
 <pre>
-x = 0
-y = 0
-dx = 2
-dy = 1
+-- bounce (demo)
+x,y = 0,0
+dx,dy = 2,1
 
 function update()
-  x = x+dx
-  y = y+dy
+  x,y = x+dx,y+dy
   if (x <= 0 or 192 <= x) then dx = -dx end
   if (y <= 0 or 128 <= y) then dy = -dy end
 end
 
 function draw()
-  clear(9)
-  rect(x-5, y-5, 10, 10, 11)
+  clear(2)
+  rect(x-4, y-4, 8, 8, 8)
 end
 </pre>
 
-<p>On the console, you can also try some simple commands such as 'echo a b c' or 'cat' (type 'exit' to exit cat).</p>
+Type 'help' for more commands. Delete a file by loading it, then editing it to be empty.
 
-<p>Currently only one program can be edited in the code editor. It will auto save in the simple microcomputer. To save it locally to the host OS, type 'export' on the console. To load a Lua program from the host OS, type 'import' on the console.</p>
+<h1>Changelog</h1>
 
-<p>There are issues. Command lines don't like being multiline, there's no copy/paste, etc. It's coming. Lots planned.</p>
+<h2>2018-02-03</h2>
+
+<pre>
+- use web local storage for filesystem
+- move demo programs (hello and bounce) into filesystem
+- add load command and improve run command
+- first cut at cd and ls commands
+- change export/import commands to operate on entire filesystem (as JSON)
+- improve read syscall for terminal and files
+</pre>
+
+<h2>2018-01-26</h2>
+
+<pre>
+- code editor and export/import only work on single 'program.lua' file
+- 'lua' (or 'run') command runs 'program.lua' file
+- 'lua name' command runs test Lua text program (hello)
+- 'lua test' command runs test Lua graphics program (bounce)
+- 'echo' command runs test shell command
+- 'cat' command runs test JavaScript text program
+- CTRL-8 runs test JavaScript graphics program (bounce)
+</pre>
 
 </body>
 </html>

@@ -24,6 +24,7 @@ const mrom = {}; // module rom
 
 const systraceEnable = {
   'beep': true,
+  'cd': true,
   'export': true,
   'gchar': false,
   'gclear': false,
@@ -32,6 +33,8 @@ const systraceEnable = {
   'gtext': false,
   'import': true,
   'input': true,
+  'load': true,
+  'ls': true,
   'open': true,
   'output': true,
   'print': true,
@@ -48,7 +51,45 @@ function systrace(name, sys, ...args) {
     console.log(`syscall ${name}`, sys, args);
 }
 
-// File handle looks like: { file:<filename>, dir:<directory>, pos:<int> }
+const demoHello = `-- hello (demo)
+write('What is your name? ')
+name = read()
+print('Hello', name)
+`;
+
+const demoBounce = `-- bounce (demo)
+x,y = 0,0
+dx,dy = 2,1
+
+function update()
+  x,y = x+dx,y+dy
+  if (x <= 0 or 192 <= x) then dx = -dx end
+  if (y <= 0 or 128 <= y) then dy = -dy end
+end
+
+function draw()
+  clear(2)
+  rect(x-4, y-4, 8, 8, 8)
+end
+`;
+
+function localStorageAvailable() {
+  try {
+    localStorage.setItem('mcomputer', 'test');
+    const result = localStorage.getItem('mcomputer') == 'test';
+    localStorage.removeItem('mcomputer');
+    return result;
+  } catch(e) {
+    return false;
+  }
+}
+
+const filesystem = localStorageAvailable() ? localStorage : {};
+filesystem['mcomputer:/'] = true;
+filesystem['mcomputer:/hello'] = demoHello;
+filesystem['mcomputer:/bounce'] = demoBounce;
+
+// File handle looks like: { file:'/full/path/name', key:'mcomputer:/full/path/name', mode:'r+', pos:123 }
 function isFile(handle) {
   return handle && handle.file;
 }
@@ -58,54 +99,97 @@ function isTerminal(handle) {
   return handle && handle.terminal;
 }
 
+const fileModes = { 'r':true, 'w':true, 'a':true, 'r+':true, 'w+':true, 'a+':true };
+
+function fileOpen(filename, mode) {
+  if (typeof filename !== 'string')
+    return undefined;
+  if (mode === undefined)
+    mode = 'r';
+  else if (!fileModes[mode])
+    return undefined;
+  // TODO relative paths './foo' '../foo' '..//../././//foo' etc. using cwd
+  // TODO absolute paths (already have '/' root)
+  const key = `mcomputer:/${filename}`;
+  var pos = 0;
+  switch (mode) {
+    case 'r':
+    case 'r+':
+      if (filesystem[key] === undefined)
+        return undefined;
+      break;
+    case 'w':
+    case 'w+':
+      filesystem[key] = '';
+      break;
+    case 'a':
+      if (filesystem[key] !== undefined)
+        pos = filesystem[key].length;
+        // fall through
+    case 'a+':
+      if (filesystem[key] === undefined)
+        filesystem[key] = '';
+      break;
+  }
+  return { file:`/${filename}`, key:key, mode:mode, pos:pos };
+}
+
+// TODO need file error states (e.g. eof)
+
 function fileRead(handle, ...args) {
+  console.log('fileRead', handle, ...args);
+  if (handle.mode === 'w' || handle.mode === 'a')
+    return undefined;
+  var file = filesystem[handle.key];
+  var pos = handle.pos;
+  var arg = args.shift();
+  if (arg === undefined)
+    arg = 'l';
+  if (arg === 'l' || arg === 'L') {
+    if (pos === file.length)
+      return undefined; // eof
+    const idx = file.indexOf('\n', pos);
+    if (idx === -1) {
+      handle.pos = file.length;
+      return file.slice(pos);
+    } else {
+      handle.pos = idx+1;
+      return file.slice(pos, idx + (arg === 'L' ? 1 : 0));
+    }
+  } else if (arg === 'a') {
+    handle.pos = file.length;
+    return file.slice(pos); // eof --> empty string
+  }
+}
+
+function fileSeek(handle, ...args) {
+  console.log('fileSeek', handle, ...args);
 }
 
 function fileWrite(handle, ...args) {
+  console.log('fileWrite', handle, ...args);
+  if (handle.mode === 'r')
+    return -1;
+  var file = filesystem[handle.key];
+  var pos = (handle.mode.charAt() === 'a') ? file.length : handle.pos;
+  var written = 0;
+  while (true) {
+    var arg = args.shift();
+    if (typeof arg === 'number')
+      arg = String(arg);
+    else if (typeof arg !== 'string')
+      break;
+    file = file.slice(0, pos) + arg + file.slice(pos + arg.length);
+    pos += arg.length;
+    written += arg.length;
+  }
+  filesystem[handle.key] = file;
+  handle.pos = pos;
+  return written;
 }
 
-function fread(fd, fmt) {
-  if (isatty(fd)) return null;
-  var f = fd.dir[fd.name];
-  const eof = f.length;
-  switch (fmt !== undefined ? fmt : 'l') {
-    case 'n':
-      // TODO
-      break;
-    case 'a':
-      f = f.slice(fd.pos);
-      fd.pos = eof;
-      return f;
-    case 'l':
-      if (fd.pos == eof) return undefined;
-      const i = f.indexOf('\n', fd.pos);
-      if (i == -1) {
-        f = f.slice(fd.pos);
-        fd.pos = eof;
-      } else {
-        f = f.slice(fd.pos, i);
-        fd.pos = i+1;
-      }
-      return f;
-    case 'L':
-      // TODO
-      break;
-    default:
-      // TODO try number
-  }
-}
-
-function fwrite(fd, str) {
-  if (isatty(fd)) {
-    fd.write(str);
-  } else {
-    // TODO need to check semantics of overwriting, seeking, etc.
-    var f = fd.dir[fd.name];
-    f = f.slice(0, fd.pos) + str + f.slice(fd.pos + str.length);
-    fd.dir[fd.name] = f;
-    fd.pos += str.length;
-  }
-}
+// global
+window.loadedFile = undefined;
 
 module.exports = class Micro {
 
@@ -117,9 +201,11 @@ module.exports = class Micro {
     this.cw = 5; // char width
     this.ch = 7; // char height
     
+    this.filesystem = filesystem; // HACK
     this.syscall = {
       _os: this,
       beep: this.syscall_beep,
+      cd: this.syscall_cd,
       export: this.syscall_export,
       gchar: this.syscall_gchar,
       gclear: this.syscall_gclear,
@@ -128,6 +214,8 @@ module.exports = class Micro {
       gtext: this.syscall_gtext,
       import: this.syscall_import,
       input: this.syscall_input,
+      load: this.syscall_load,
+      ls: this.syscall_ls,
       open: this.syscall_open,
       output: this.syscall_output,
       print: this.syscall_print,
@@ -149,22 +237,8 @@ module.exports = class Micro {
     this.sys._process = this;
   }
 
-  reboot() {
-    this.filesystem = {
-      program:'',
-      a:'hey diddle diddle\nthe cat and the fiddle\nthe cow jumped over the moon\n',
-      b:'the little dog laughed\nto see such a sight\nthe dish ran away with the spoon\n',
-      c:'peter piper\npicked a peck of pickled peppers\nhow many pickled peppers\ndid peter piper pick\n',
-      d:{ e:'every good boy', f:'deserves fudge' },
-      n1: '1\n2\n3\n4\n5\n6\n',
-      n2: '1.2\n3.4\n5.6\n7.8\n',
-      name: 'print "What is your name?"\nname=read()\nprint("Hello,",name)\n',
-      luaprint: 'print("hello", "lua")\n',
-      luawrite: 'write("hello lua", "\\n")\n',
-    };
-    //this.filesystem['..'] = this.filesystem;
-    //this.filesystem.d['..'] = this.filesystem;
-    this.sys._cwd = this.filesystem;
+  async reboot() {
+    this.sys._cwd = '/';
     
     // 0x3000 will store 192x128 graphics buffer (two pixels per byte)
     this.mem = new Uint8Array(0x3000);
@@ -240,10 +314,26 @@ module.exports = class Micro {
     return this.beep();
   }
 
+  // TODO need to handle '..', '../..', 'dir', 'dir/', etc.
+  syscall_cd(dir) {
+    systrace('cd', this, arguments);
+    if (dir === undefined)
+      return this._cwd;
+    if (dir.charAt(dir.length-1) !== '/')
+      dir += '/';
+    if (dir.charAt(0) !== '/')
+      dir = this._cwd + dir;
+    const key = `mcomputer:${dir}`;
+    if (filesystem[key]) {
+      this._cwd = dir;
+      return dir;
+    }
+  }
+
   syscall_export() {
     systrace('export', this, arguments);
-    //const json = JSON.stringify(this._os.filesystem);
-    this._os.bspExport('program.lua', this._os.filesystem.program);
+    const json = JSON.stringify(filesystem);
+    this._os.bspExport('filesystem.json', json);
   }
 
   syscall_gchar(ch, x, y, fg, bg) {
@@ -299,10 +389,35 @@ module.exports = class Micro {
     systrace('input', this, arguments);
   }
 
+  syscall_load(filename) {
+    systrace('load', this, arguments);
+    const handle = fileOpen(filename, 'r');
+    if (handle) {
+      window.loadedFile = handle.file
+      this.print('ok');
+    } else {
+      this.print('load error');
+    }
+  }
+
+  syscall_ls() {
+    systrace('ls', this, arguments);
+    const list = [];
+    const len = 10 + this._cwd.length;
+    const regex = new RegExp(`^mcomputer:${this._cwd}[^/]+/?$`);
+    for (var key in filesystem)
+      if (filesystem.hasOwnProperty(key) && regex.test(key))
+        list.push(key.slice(len));
+    return list;
+  }
+
+  // Sounds like open should create new file descriptor
+  // but sometimes (spawn) you want to dup
+  // https://stackoverflow.com/questions/5284062/two-file-descriptors-to-same-file
+
   syscall_open(filename, mode) {
     systrace('open', this, arguments);
-    // Assume bare file name, open in current working dir
-    return { dir:this._cwd, name:filename, pos:0 };
+    return fileOpen(filename, mode);
   }
 
   syscall_output(file) {
@@ -342,7 +457,7 @@ module.exports = class Micro {
 
   syscall_spawn(...args) {
     systrace('spawn', this, arguments);
-    const name = args.shift();
+    const name = args[0];
     var M = mrom[name];
     if (!M) M = mrom[name] = require(`./${name}.js`);
     const process = new M();
@@ -350,9 +465,10 @@ module.exports = class Micro {
     process.sys._name = name;
     process.sys._process = process;
     process.sys._parent = this._process;
+    process.sys._cwd = this._cwd;
     process.sys._terminal = { terminal:this._os.vc }; // TODO get from parent
-    process.sys._input = process.sys._terminal; // TODO get from parent
-    process.sys._output = process.sys._terminal; // TODO get from parent
+    process.sys._input = process.sys._terminal; // TODO get from parent (dup?)
+    process.sys._output = process.sys._terminal; // TODO get from parent (dup?)
     // currently, wait for child like this:
     // const exitStatus = this.sys.spawn('prog', ...args).sys._main
     process.sys._main = new Promise((resolve, reject) => {
@@ -368,7 +484,7 @@ module.exports = class Micro {
   }
 
   // write ([fd,] ...)
-  // Writes the value of each of its arguments to fd. The arguments must be strings or numbers.
+  // Writes the value of each of its arguments to handle. The arguments must be strings or numbers.
   syscall_write(...args) {
     systrace('write', this, arguments);
     var handle;
@@ -472,7 +588,20 @@ module.exports = class Micro {
 
   onFileImport(name, contents) {
     // HACK
-    this.filesystem.program = contents;
+    var obj;
+    try {
+      obj = JSON.parse(contents);
+    } catch (e) {
+    }
+    if (!obj)
+      return;
+    var key;
+    for (key in filesystem)
+      if (filesystem.hasOwnProperty(key))
+        delete filesystem[key];
+    for (key in obj)
+      if (obj.hasOwnProperty(key))
+        filesystem[key] = obj[key];
   }
 
   onKeyDown(e) {

@@ -305,6 +305,8 @@ module.exports = class Terminal {
           this.reading.handle.history.set(this.reading.buffer);
           this.reading.handle.history.commit();
           this.reading.handle.history.new();
+          if (this.reading.fmt === 'L')
+            this.reading.buffer += '\n';
           this.reading.resolve(this.reading.buffer);
           delete this.reading;
         }

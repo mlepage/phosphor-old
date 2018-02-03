@@ -65,25 +65,6 @@ do
   end
 end`;
 
-const test = `
-x = 0
-y = 0
-dx = 2
-dy = 1
-
-function update()
-  x = x+dx
-  y = y+dy
-  if (x <= 0 or 192 <= x) then dx = -dx end
-  if (y <= 0 or 128 <= y) then dy = -dy end
-end
-
-function draw()
-  clear(9)
-  rect(x-5, y-5, 10, 10, 11)
-end
-`;
-
 module.exports = class Lua {
 
   async main(...args) {
@@ -107,12 +88,11 @@ module.exports = class Lua {
     delete window.__sys_write;
     
     // HACK to choose code to run
-    var code;
-    if (args[1] == 'test') {
-      code = test;
-    } else {
-      code = this.sys._os.filesystem[args[1] || 'program'];
-    }
+    var code = this.sys._os.filesystem[`mcomputer:/${args[1]}`];
+    if (!code)
+      code = this.sys._os.filesystem[`mcomputer:${window.loadedFile}`];
+    if (!code)
+      return;
     
     this.L.execute(`co = coroutine.wrap(function() ${code} js.global.__lua_done = true js.global.__lua_draw = draw ~= nil js.global.__lua_update = update ~= nil end)`);
     

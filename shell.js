@@ -3,15 +3,16 @@
 
 'use strict';
 
-const helpText = `cat    - test js program
-echo   - test command
-export - save your program to host
-import - load your program from host
-lua    - test lua program
-run    - run your lua program
+const helpText = `help   - show commands
+cd     - change directory
+ls     - list files
+load   - load program file
+run    - run program file
+export - save filesystem to host
+import - load filesystem from host
 
-ESC    - toggle editor
-CTRL+0 - console
+ESC    - toggle console/editor
+CTRL+0 - console (command line)
 CTRL+1 - code editor
 CTRL+2 - sprite editor
 CTRL+3 - map editor
@@ -29,7 +30,7 @@ module.exports = class Shell {
       if (interactive) {
         this.sys.write(prompt);
       }
-      const line = await this.sys.read('a', 'b', 'c');
+      const line = await this.sys.read();
       //if (line === undefined) break; // only needed when reading from file
       await this.process(line);
     }
@@ -57,6 +58,13 @@ module.exports = class Shell {
     await this.sys.spawn('cat').sys._main;
   }
 
+  async builtin_cd(...args) {
+    args.shift();
+    const result = this.sys.cd(args.shift());
+    // TODO handle output for all modes and results
+    this.sys.write(result, '\n');
+  }
+
   async builtin_echo(...args) {
     args.shift();
     this.sys.print(...args);
@@ -74,16 +82,23 @@ module.exports = class Shell {
     this.sys.import();
   }
 
-  async builtin_lua(...args) {
-    const process = this.sys.spawn('lua', ...args);
-    await process.sys._main;
-    if (process.onUpdate) {
-      this.sys.vc(7, process);
-    }
+  async builtin_load(...args) {
+    this.sys.load(args[1]);
+  }
+
+  async builtin_ls(...args) {
+    // TODO use args
+    const list = this.sys.ls();
+    for (var i = 0; i < list.length; ++i)
+      this.sys.write(list[i], '\n');
   }
 
   async builtin_run(...args) {
-    await this.sys.spawn('lua').sys._main;
+    args.shift();
+    const process = this.sys.spawn('lua', ...args);
+    await process.sys._main;
+    if (process.onUpdate)
+      this.sys.vc(7, process);
   }
 
 };

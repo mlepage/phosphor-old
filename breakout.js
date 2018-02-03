@@ -20,10 +20,10 @@ module.exports = class Breakout {
   onDraw() {
     //this.sys.gclear(3);
     //this.sys.grect(this.x-5, this.y-5, 10, 10, 15);
-    this.sys.clear();
+    this.sys.clear(1);
     //this.sys.pal(15, 14, g%2 == 0);
     //this.sys.pset(this.x, this.y, 15);
-    this.sys.rect(this.x-5, this.y-5, 10, 10, 15);
+    this.sys.rect(this.x-4, this.y-4, 8, 8, 9);
   }
 
   onKeyDown(e) {

@@ -40,7 +40,8 @@ function val(val, def) {
 module.exports = class CodeEditor {
 
   main() {
-    this.buffer = new Buffer(this.sys._os.filesystem.program); // HACK
+    this.file = window.loadedFile; // HACK
+    this.buffer = new Buffer(this.sys._os.filesystem[`mcomputer:${this.file}`]); // HACK
     this.scroll = [0, 0]; // scroll position (zero-based index of top left char)
     this.cursor = [0, 0]; // cursor position (zero-based index of cursor)
     this.select = null; // select position (or null)
@@ -299,14 +300,29 @@ module.exports = class CodeEditor {
 
   onResume() {
     // HACK
-    if (this.sys._os.filesystem.program != this.buffer.getText()) {
+    if (this.file !== window.loadedFile)
       this.main();
-    }
   }
 
   onSuspend() {
     // HACK
-    this.sys._os.filesystem.program = this.buffer.getText();
+    const text = this.buffer.getText();
+    if (text) {
+      if (!this.file) {
+        this.file = `/untitled`;
+        for (var i = 1; i <= 100; ++i) {
+          if (!this.sys._os.filesystem[`mcomputer:${this.file}`]) {
+            window.loadedFile = this.file;
+            break;
+          }
+          // NOTE will always overwrite untitled-100 if it comes to it
+          this.file = `/untitled-${i}`;
+        }
+      }
+      this.sys._os.filesystem[`mcomputer:${this.file}`] = text;
+    } else if (this.file) {
+      delete this.sys._os.filesystem[`mcomputer:${this.file}`];
+    }
   }
 
 };

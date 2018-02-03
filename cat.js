@@ -8,13 +8,12 @@ module.exports = class Cat {
   async main() {
     // TODO support some kind of ctrl-D
     this.sys.print("type lines ('exit' to exit)");
-    // TODO use sys.read('L') when supported
     while (true) {
-      const line = await this.sys.read();
+      const line = await this.sys.read('L');
       if (line === undefined) break;
-      if (line == 'exit') // TEMP until ctrl-D works
+      if (line === 'exit\n') // TEMP until ctrl-D works
         break;
-      this.sys.write(`${line}\n`);
+      this.sys.write(line);
     }
   }
 
