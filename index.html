@@ -24,7 +24,9 @@
 
 <h1>Instructions</h1>
 
-<p>Type commands in the console (command line). Hit ESCAPE to toggle edit mode on and off, or CTRL-1 through CTRL-5 to go directly to the editors (code, sprite, map, sound, music; only the code editor works right now). Hit CTRL-` to go directly to the console.</p>
+<p>Type commands in the console (command line). Type 'scale n' where n is an integer (1, 2, 3...) to change the scale of the display. Type 'reboot' or reload the page to reboot the microcomputer.</p>
+
+<p>Hit ESCAPE to toggle edit mode on and off, or CTRL-1 through CTRL-5 to go directly to the editors (code, sprite, map, sound, music; only the code editor works right now). Hit CTRL-` to go directly to the console.</p>
 
 <p>You can type a Lua program in the code editor (CTRL-1) and in the console (CTRL-`) type 'run' to run it.</p>
 
@@ -59,6 +61,15 @@ end
 Type 'help' for more commands. Delete a file by loading it, then editing it to be empty.
 
 <h1>Changelog</h1>
+
+<h2>2018-02-24</h2>
+
+<pre>
+- add scale command
+- add proper path resolution (cd, ls)
+- add mkdir and rmdir commands
+- add reboot command
+</pre>
 
 <h2>2018-02-03</h2>
 

@@ -4,12 +4,16 @@
 'use strict';
 
 const helpText = `help   - show commands
+mkdir  - make directory
+rmdir  - remove directory
 cd     - change directory
-ls     - list files
+ls     - list files in directory
 load   - load program file
 run    - run program file
 export - save filesystem to host
 import - load filesystem from host
+scale  - change host scale factor
+reboot - reboot computer
 
 ESC    - toggle console/editor
 CTRL+0 - console (command line)
@@ -33,9 +37,11 @@ module.exports = class Shell {
       const line = await this.sys.read();
       //if (line === undefined) break; // only needed when reading from file
       await this.process(line);
+      if (this.exit)
+        break;
     }
     
-    alert('shell exited');
+    console.log('shell exited');
   }
 
   async process(line) {
@@ -61,8 +67,7 @@ module.exports = class Shell {
   async builtin_cd(...args) {
     args.shift();
     const result = this.sys.cd(args.shift());
-    // TODO handle output for all modes and results
-    this.sys.write(result, '\n');
+    this.sys.write(result || 'no such directory', '\n');
   }
 
   async builtin_echo(...args) {
@@ -87,10 +92,30 @@ module.exports = class Shell {
   }
 
   async builtin_ls(...args) {
-    // TODO use args
-    const list = this.sys.ls();
-    for (var i = 0; i < list.length; ++i)
-      this.sys.write(list[i], '\n');
+    args.shift();
+    const result = this.sys.ls(args.shift());
+    if (result === undefined)
+      this.sys.write('no such directory\n');
+    else
+      for (var i = 0; i < result.length; ++i)
+        this.sys.write(result[i], '\n');
+  }
+
+  async builtin_mkdir(...args) {
+    args.shift();
+    const result = this.sys.mkdir(args.shift());
+    this.sys.write(result ? 'directory made' : 'cannot make directory', '\n');
+  }
+
+  async builtin_reboot(...args) {
+    this.exit = true;
+    this.sys.reboot();
+  }
+
+  async builtin_rmdir(...args) {
+    args.shift();
+    const result = this.sys.rmdir(args.shift());
+    this.sys.write(result ? 'directory removed' : 'no such directory', '\n');
   }
 
   async builtin_run(...args) {
@@ -99,6 +124,10 @@ module.exports = class Shell {
     await process.sys._main;
     if (process.onUpdate)
       this.sys.vc(7, process);
+  }
+
+  async builtin_scale(...args) {
+    this.sys.scale(args[1]);
   }
 
 };

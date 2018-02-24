@@ -64,6 +64,12 @@ function screenRect(x, y, w, h, c) {
   this.bsp_ctx.fillRect(scale*x, scale*y, scale*w, scale*h);
 }
 
+function screenScale(scale) {
+  this.bsp_scale = scale;
+  this.bsp_canvas.width = scale*192;
+  this.bsp_canvas.height = scale*128;
+}
+
 module.exports = {
 
   newMicro() {
@@ -93,6 +99,7 @@ module.exports = {
     micro.bspScreenClear = screenClear;
     micro.bspScreenPixel = screenPixel;
     micro.bspScreenRect = screenRect;
+    micro.bspScreenScale = screenScale;
     
     canvas.addEventListener('keydown', micro.onKeyDown.bind(micro));
     canvas.addEventListener('mouseclick', micro.onMouseClick.bind(micro));

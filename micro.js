@@ -25,6 +25,7 @@ const mrom = {}; // module rom
 const systraceEnable = {
   'beep': true,
   'cd': true,
+  'cp': true,
   'export': true,
   'gchar': false,
   'gclear': false,
@@ -35,11 +36,16 @@ const systraceEnable = {
   'input': true,
   'load': true,
   'ls': true,
+  'mkdir': true,
+  'mv': true,
   'open': true,
   'output': true,
   'print': true,
   'read': true,
   'reboot': true,
+  'rm': true,
+  'rmdir': true,
+  'scale': true,
   'seek': true,
   'spawn': true,
   'vc': true,
@@ -84,10 +90,15 @@ function localStorageAvailable() {
   }
 }
 
+// Returns filesystem key, assuming absolute name
+function fskey(name) {
+  return `mcomputer:${name}`;
+}
+
 const filesystem = localStorageAvailable() ? localStorage : {};
-filesystem['mcomputer:/'] = true;
-filesystem['mcomputer:/hello'] = demoHello;
-filesystem['mcomputer:/bounce'] = demoBounce;
+filesystem[fskey('/')] = true;
+filesystem[fskey('/hello')] = demoHello;
+filesystem[fskey('/bounce')] = demoBounce;
 
 // File handle looks like: { file:'/full/path/name', key:'mcomputer:/full/path/name', mode:'r+', pos:123 }
 function isFile(handle) {
@@ -97,6 +108,33 @@ function isFile(handle) {
 // Terminal handle looks like: { terminal:<terminal> }
 function isTerminal(handle) {
   return handle && handle.terminal;
+}
+
+// Return canonical resolved name, or undefined
+// http://man7.org/linux/man-pages/man7/path_resolution.7.html
+function resolve(cwd, name) {
+  // Eliminate multiple slashes
+  name = name.replace(/[\/]+/g, '/');
+  // Ensure name is absolute
+  if (name.charAt() !== '/')
+    name = cwd + name;
+  // Resolve directories
+  var resolved = '';
+  name.replace(/[^\/]*\//g, (match) => {
+    if (match === '../')
+      resolved = resolved.replace(/[^\/]+\/$/, '');
+    else
+      resolved += match;
+  });
+  // Resolve file
+  if (name.charAt(name.length-1) !== '/') {
+    name = name.match(/([^\/]+)$/)[1];
+    if (name === '..')
+      resolved = resolved.replace(/[^\/]+\/$/, '');
+    else
+      resolved += name;
+  }
+  return resolved;
 }
 
 const fileModes = { 'r':true, 'w':true, 'a':true, 'r+':true, 'w+':true, 'a+':true };
@@ -193,7 +231,7 @@ window.loadedFile = undefined;
 
 module.exports = class Micro {
 
-  constructor(opts) {
+  constructor() {
     // TODO probably should go into a device profile
     // and be exposed to both bsp and to processes
     this.w = 192; // screen width
@@ -202,36 +240,14 @@ module.exports = class Micro {
     this.ch = 7; // char height
     
     this.filesystem = filesystem; // HACK
-    this.syscall = {
-      _os: this,
-      beep: this.syscall_beep,
-      cd: this.syscall_cd,
-      export: this.syscall_export,
-      gchar: this.syscall_gchar,
-      gclear: this.syscall_gclear,
-      gpixel: this.syscall_gpixel,
-      grect: this.syscall_grect,
-      gtext: this.syscall_gtext,
-      import: this.syscall_import,
-      input: this.syscall_input,
-      load: this.syscall_load,
-      ls: this.syscall_ls,
-      open: this.syscall_open,
-      output: this.syscall_output,
-      print: this.syscall_print,
-      read: this.syscall_read,
-      reboot: this.syscall_reboot,
-      seek: this.syscall_seek,
-      spawn: this.syscall_spawn,
-      vc: this.syscall_vc,
-      write: this.syscall_write,
-      // graphics
-      clear: this.syscall_clear,
-      pal: this.syscall_pal,
-      pget: this.syscall_pget,
-      pset: this.syscall_pset,
-      rect: this.syscall_rect,
-    };
+    
+    // TODO syscall object could probably be global (reuse per computer)
+    this.syscall = { _os:this };
+    // https://stackoverflow.com/questions/37771418/iterate-through-methods-and-properties-of-an-es6-class
+    const names = Object.getOwnPropertyNames(Micro.prototype);
+    for (let name of names)
+      if (/^syscall_/.test(name))
+        this.syscall[name.slice(8)] = this[name];
     
     this.sys = Object.create(this.syscall);
     this.sys._process = this;
@@ -314,20 +330,20 @@ module.exports = class Micro {
     return this.beep();
   }
 
-  // TODO need to handle '..', '../..', 'dir', 'dir/', etc.
-  syscall_cd(dir) {
+  // Return current directory if no arg
+  // Return (absolute) new current directory if exists
+  // Return undefined if no such directory
+  syscall_cd(name) {
     systrace('cd', this, arguments);
-    if (dir === undefined)
+    if (name === undefined)
       return this._cwd;
-    if (dir.charAt(dir.length-1) !== '/')
-      dir += '/';
-    if (dir.charAt(0) !== '/')
-      dir = this._cwd + dir;
-    const key = `mcomputer:${dir}`;
-    if (filesystem[key]) {
-      this._cwd = dir;
-      return dir;
-    }
+    name = resolve(this._cwd, name);
+    if (name.charAt(name.length-1) !== '/')
+      name += '/';
+    if (!filesystem[fskey(name)])
+      return;
+    this._cwd = name;
+    return name;
   }
 
   syscall_export() {
@@ -392,6 +408,7 @@ module.exports = class Micro {
   syscall_load(filename) {
     systrace('load', this, arguments);
     const handle = fileOpen(filename, 'r');
+    // TODO should return true/false and let shell print feedback
     if (handle) {
       window.loadedFile = handle.file
       this.print('ok');
@@ -400,15 +417,49 @@ module.exports = class Micro {
     }
   }
 
-  syscall_ls() {
+  // Return list of files/directories (could be empty)
+  // Return undefined if no such directory
+  syscall_ls(name) {
     systrace('ls', this, arguments);
+    if (name === undefined)
+      name = this._cwd;
+    name = resolve(this._cwd, name);
+    if (name.charAt(name.length-1) !== '/')
+      name += '/';
+    if (!filesystem[fskey(name)])
+      return undefined;
     const list = [];
-    const len = 10 + this._cwd.length;
-    const regex = new RegExp(`^mcomputer:${this._cwd}[^/]+/?$`);
+    const len = 10 + name.length;
+    const re = new RegExp(`^mcomputer:${name}[^/]+/?$`);
     for (var key in filesystem)
-      if (filesystem.hasOwnProperty(key) && regex.test(key))
+      if (filesystem.hasOwnProperty(key) && re.test(key))
         list.push(key.slice(len));
     return list;
+  }
+
+  // Return undefined if no arg
+  // Return undefined if directory (or file) already exists
+  // Return resolved name if successful
+  syscall_mkdir(name) {
+    systrace('mkdir', this, arguments);
+    if (name === undefined)
+      return undefined;
+    name = resolve(this._cwd, name);
+    var fname;
+    if (name.charAt(name.length-1) !== '/') {
+      fname = name;
+      name += '/';
+    } else {
+      fname = name.slice(0, name.length-1);
+    }
+    if (filesystem[fskey(name)] || filesystem[fskey(fname)])
+      return undefined;
+    var walk = '';
+    name.replace(/[^\/]*\//g, (match) => {
+      walk += match;
+      filesystem[fskey(walk)] = true;
+    });
+    return name;
   }
 
   // Sounds like open should create new file descriptor
@@ -417,6 +468,7 @@ module.exports = class Micro {
 
   syscall_open(filename, mode) {
     systrace('open', this, arguments);
+    // TODO resolve filename to absolute
     return fileOpen(filename, mode);
   }
 
@@ -448,6 +500,32 @@ module.exports = class Micro {
   syscall_reboot() {
     systrace('reboot', this, arguments);
     this._os.reboot();
+  }
+
+  // Return undefined if no arg
+  // Return undefined if directory does not exist
+  // Return resolved name if successful
+  syscall_rmdir(name) {
+    systrace('rmdir', this, arguments);
+    if (name === undefined)
+      return undefined;
+    name = resolve(this._cwd, name);
+    if (name.charAt(name.length-1) !== '/')
+      name += '/';
+    if (!filesystem[fskey(name)])
+      return undefined;
+    const re = new RegExp(`^mcomputer:${name}`);
+    for (var key in filesystem)
+      if (filesystem.hasOwnProperty(key) && re.test(key))
+        delete filesystem[key];
+    return name;
+  }
+
+  syscall_scale(scale) {
+    systrace('scale', this, arguments);
+    // TODO no args means return current scale
+    // TODO error checking on inputs
+    this._os.bspScreenScale(scale);
   }
 
   syscall_seek(fd, offset, whence) {
@@ -661,6 +739,7 @@ module.exports = class Micro {
 
   bspAudioBeep() {console.log('bspAudioBeep')}
 
+
   bspExport(name, contents) {console.log('bspExport')}
 
   bspImport() {console.log('bspImport')}
@@ -672,6 +751,8 @@ module.exports = class Micro {
   bspScreenPixel(x, y, c) {console.log('bspScreenPixel')}
 
   bspScreenRect(x, y, w, h, c) {console.log('bspScreenRect')}
+
+  bspScreenScale(scale) {console.log('bspScreenScale')}
 
   // TODO deal with character rom, palette rom, size, scale, etc.
   ctlCharacterRom(rom) {
