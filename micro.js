@@ -31,9 +31,11 @@ const systraceEnable = {
   'gclear': false,
   'gpixel': false,
   'grect': false,
+  'grecto': false,
   'gtext': false,
   'import': true,
   'input': true,
+  'key': true,
   'load': true,
   'ls': true,
   'mkdir': true,
@@ -256,6 +258,8 @@ module.exports = class Micro {
   async reboot() {
     this.sys._cwd = '/';
     
+    this.keystate = [0, 0, 0, 0]; // 32 bits each
+    
     // 0x3000 will store 192x128 graphics buffer (two pixels per byte)
     this.mem = new Uint8Array(0x3000);
     this.gstate = {
@@ -389,6 +393,12 @@ module.exports = class Micro {
     return this.grect(x, y, w, h, c);
   }
 
+  syscall_grecto(x, y, w, h, c) {
+    systrace('grecto', this, arguments);
+    this.grecto = this._os.bspScreenRectO.bind(this._os);
+    return this.grecto(x, y, w, h, c);
+  }
+
   syscall_gtext(str, x, y, fg, bg) {
     systrace('gtext', this, arguments);
     for (var i = 0, count = str.length; i < count; ++i, x+=5) {
@@ -403,6 +413,16 @@ module.exports = class Micro {
 
   syscall_input(file) {
     systrace('input', this, arguments);
+  }
+
+  syscall_key(keycode) {
+    systrace('key', this, arguments);
+    if (typeof keycode == 'string') {
+      keycode = keycode.charCodeAt();
+    }
+    const i = floor(keycode/32);
+    const mask = 1 << (keycode%32);
+    return (this._os.keystate[i] & mask) !== 0;
   }
 
   syscall_load(filename) {
@@ -716,14 +736,47 @@ module.exports = class Micro {
       this.onDraw();
       return;
     }
+    if (e.key.length == 1) {
+      const keycode = e.key.charCodeAt();
+      const i = floor(keycode/32);
+      const mask = 1 << (keycode%32);
+      this.keystate[i] |= mask;
+    }
     if (this.vc.onKeyDown) this.vc.onKeyDown(e);
     e.preventDefault();
     this.onDraw();
   }
 
+  onKeyUp(e) {
+    if (e.key.length == 1) {
+      const keycode = e.key.charCodeAt();
+      const i = floor(keycode/32);
+      const mask = 1 << (keycode%32);
+      this.keystate[i] &= ~mask;
+    }
+  }
+
   onMouseClick(e) {
     if (this.vc.onMouseClick) this.vc.onMouseClick(e);
-    e.preventDefault();
+    //e.preventDefault();
+    this.onDraw();
+  }
+
+  onMouseDown(e) {
+    if (this.vc.onMouseDown) this.vc.onMouseDown(e);
+    //e.preventDefault();
+    this.onDraw();
+  }
+
+  onMouseMove(e) {
+    if (this.vc.onMouseMove) this.vc.onMouseMove(e);
+    //e.preventDefault();
+    this.onDraw();
+  }
+
+  onMouseUp(e) {
+    if (this.vc.onMouseUp) this.vc.onMouseUp(e);
+    //e.preventDefault();
     this.onDraw();
   }
 
@@ -751,6 +804,8 @@ module.exports = class Micro {
   bspScreenPixel(x, y, c) {console.log('bspScreenPixel')}
 
   bspScreenRect(x, y, w, h, c) {console.log('bspScreenRect')}
+
+  bspScreenRectO(x, y, w, h, c) {console.log('bspScreenRectO')}
 
   bspScreenScale(scale) {console.log('bspScreenScale')}
 

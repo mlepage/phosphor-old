@@ -8,10 +8,10 @@ module.exports = class SoundEditor {
   // ---------------------------------------------------------------------------
 
   onDraw() {
-    this.sys.gclear(13);
-    this.sys.grect(20, 10, 40, 30, 11);
-    this.sys.gchar('M', 100, 100, undefined, 15);
-    this.sys.gpixel(20, 10, 14);
+    this.sys.gclear(7);
+    this.sys.grect(0, 0, 192, 7, 6);
+    this.sys.grect(0, 128-7, 192, 7, 6);
+    this.sys.gtext('SOUND EDITOR (COMING SOON)', 0, 0, 15);
   }
 
   onKeyDown(e) {

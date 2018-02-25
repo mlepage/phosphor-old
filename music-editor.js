@@ -8,8 +8,10 @@ module.exports = class MusicEditor {
   // ---------------------------------------------------------------------------
 
   onDraw() {
-    this.sys.gclear(14);
-    this.sys.grect(30, 40, 50, 60, 12);
+    this.sys.gclear(7);
+    this.sys.grect(0, 0, 192, 7, 6);
+    this.sys.grect(0, 128-7, 192, 7, 6);
+    this.sys.gtext('MUSIC EDITOR (COMING SOON)', 0, 0, 15);
   }
 
   onKeyDown(e) {

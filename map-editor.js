@@ -8,9 +8,10 @@ module.exports = class MapEditor {
   // ---------------------------------------------------------------------------
 
   onDraw() {
-    this.sys.gclear(5);
-    this.sys.grect(0, 0, 192, 8, 10);
-    this.sys.grect(0, 128-8, 192, 8, 10);
+    this.sys.gclear(7);
+    this.sys.grect(0, 0, 192, 7, 6);
+    this.sys.grect(0, 128-7, 192, 7, 6);
+    this.sys.gtext('MAP EDITOR (COMING SOON)', 0, 0, 15);
   }
 
   onKeyDown(e) {

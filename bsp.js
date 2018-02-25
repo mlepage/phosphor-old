@@ -5,6 +5,8 @@
 
 const Micro = require('./micro.js');
 
+const round = Math.round;
+
 // TODO get palette from micro
 const palette = [ // Dawnbringer
   '#140c1c', '#442434', '#30346d', '#4e4a4e',
@@ -47,6 +49,42 @@ function fileImport() {
   //document.body.removeChild(input);
 }
 
+function mouseClick(e) {
+  // TODO reuse object for event
+  const rect = e.target.getBoundingClientRect();
+  this.onMouseClick({
+    x: round((e.clientX - rect.left) / this.bsp_scale),
+    y: round((e.clientY - rect.top) / this.bsp_scale)
+  });
+}
+
+function mouseDown(e) {
+  // TODO reuse object for event
+  const rect = e.target.getBoundingClientRect();
+  this.onMouseDown({
+    x: round((e.clientX - rect.left) / this.bsp_scale),
+    y: round((e.clientY - rect.top) / this.bsp_scale)
+  });
+}
+
+function mouseMove(e) {
+  // TODO reuse object for event
+  const rect = e.target.getBoundingClientRect();
+  this.onMouseMove({
+    x: round((e.clientX - rect.left) / this.bsp_scale),
+    y: round((e.clientY - rect.top) / this.bsp_scale)
+  });
+}
+
+function mouseUp(e) {
+  // TODO reuse object for event
+  const rect = e.target.getBoundingClientRect();
+  this.onMouseUp({
+    x: round((e.clientX - rect.left) / this.bsp_scale),
+    y: round((e.clientY - rect.top) / this.bsp_scale)
+  });
+}
+
 function screenClear(c) {
   this.bsp_ctx.fillStyle = palette[c];
   this.bsp_ctx.fillRect(0, 0, this.bsp_canvas.width, this.bsp_canvas.height);
@@ -64,10 +102,17 @@ function screenRect(x, y, w, h, c) {
   this.bsp_ctx.fillRect(scale*x, scale*y, scale*w, scale*h);
 }
 
+function screenRectO(x, y, w, h, c) {
+  const scale = this.bsp_scale;
+  this.bsp_ctx.strokeStyle = palette[c];
+  this.bsp_ctx.strokeRect(scale*(x+0.5), scale*(y+0.5), scale*(w-1), scale*(h-1));
+}
+
 function screenScale(scale) {
   this.bsp_scale = scale;
   this.bsp_canvas.width = scale*192;
   this.bsp_canvas.height = scale*128;
+  this.bsp_ctx.lineWidth = scale;
 }
 
 module.exports = {
@@ -92,6 +137,7 @@ module.exports = {
     micro.bsp_canvas = canvas;
     micro.bsp_ctx = ctx;
     micro.bsp_scale = scale; // TODO get scale from micro
+    ctx.lineWidth = scale;
     
     micro.bspAudioBeep = audioBeep;
     micro.bspExport = fileExport;
@@ -99,10 +145,15 @@ module.exports = {
     micro.bspScreenClear = screenClear;
     micro.bspScreenPixel = screenPixel;
     micro.bspScreenRect = screenRect;
+    micro.bspScreenRectO = screenRectO;
     micro.bspScreenScale = screenScale;
     
     canvas.addEventListener('keydown', micro.onKeyDown.bind(micro));
-    canvas.addEventListener('mouseclick', micro.onMouseClick.bind(micro));
+    canvas.addEventListener('keyup', micro.onKeyUp.bind(micro));
+    canvas.addEventListener('click', mouseClick.bind(micro));
+    canvas.addEventListener('mousedown', mouseDown.bind(micro));
+    canvas.addEventListener('mousemove', mouseMove.bind(micro));
+    canvas.addEventListener('mouseup', mouseUp.bind(micro));
     canvas.addEventListener('mousewheel', micro.onMouseWheel.bind(micro));
     
     return micro;

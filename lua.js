@@ -27,6 +27,11 @@ do
     sys_grect(nil, ...)
   end
   
+  local sys_key = js.global.__sys_key
+  function key(...)
+    return sys_key(nil, ...)
+  end
+  
   log = print
   
   local sys_pal = js.global.__sys_pal
@@ -72,6 +77,7 @@ module.exports = class Lua {
     window.__sys_clear = this.sys.clear.bind(this.sys);
     window.__sys_gclear = this.sys.gclear.bind(this.sys);
     window.__sys_grect = this.sys.grect.bind(this.sys);
+    window.__sys_key = this.sys.key.bind(this.sys);
     window.__sys_pal = this.sys.pal.bind(this.sys);
     window.__sys_pget = this.sys.pget.bind(this.sys);
     window.__sys_pset = this.sys.pset.bind(this.sys);
@@ -81,6 +87,7 @@ module.exports = class Lua {
     delete window.__sys_clear;
     delete window.__sys_gclear;
     delete window.__sys_grect;
+    delete window.__sys_key;
     delete window.__sys_pal;
     delete window.__sys_pget;
     delete window.__sys_pset;
