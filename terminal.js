@@ -100,7 +100,7 @@ module.exports = class Terminal {
     this.bg = 0; // background color
     this.cur = 6; // cursor color
     
-    this.onDraw();
+    this.sys._os.onDraw();
   }
 
   scrollDown(n) {
@@ -129,7 +129,7 @@ module.exports = class Terminal {
     //for (const arg of args) {
     //  this._write1(arg);
     //}
-    this.onDraw(); // TEMP need to redraw when called from async function
+    this.sys._os.onDraw(); // TEMP need to redraw when called from async function
   }
 
   // ---------------------------------------------------------------------------

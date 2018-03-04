@@ -74,14 +74,14 @@ module.exports = class Lua {
 
   async main(...args) {
     this.L = new luavm.Lua.State();
-    window.__sys_clear = this.sys.clear.bind(this.sys);
+    window.__sys_clear = this.sys.gclear.bind(this.sys);
     window.__sys_gclear = this.sys.gclear.bind(this.sys);
     window.__sys_grect = this.sys.grect.bind(this.sys);
     window.__sys_key = this.sys.key.bind(this.sys);
     window.__sys_pal = this.sys.pal.bind(this.sys);
     window.__sys_pget = this.sys.pget.bind(this.sys);
     window.__sys_pset = this.sys.pset.bind(this.sys);
-    window.__sys_rect = this.sys.rect.bind(this.sys);
+    window.__sys_rect = this.sys.grect.bind(this.sys);
     window.__sys_write = this.sys.write.bind(this.sys);
     this.L.execute(init);
     delete window.__sys_clear;
@@ -126,6 +126,7 @@ module.exports = class Lua {
 
   _onDraw() {
     this.L.execute('draw()');
+    this.sys._os.bspScreenFlip(this.sys._os.vram); // TODO better place for this
   }
 
   _onUpdate() {

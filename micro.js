@@ -258,6 +258,8 @@ module.exports = class Micro {
   async reboot() {
     this.sys._cwd = '/';
     
+    this.vram = new Uint8Array(192*128);
+    
     this.keystate = [0, 0, 0, 0]; // 32 bits each
     
     // 0x3000 will store 192x128 graphics buffer (two pixels per byte)
@@ -358,45 +360,52 @@ module.exports = class Micro {
 
   syscall_gchar(ch, x, y, fg, bg) {
     systrace('gchar', this, arguments);
-    // TODO switch to this eventually
-    //this.gclear = this._os.bspScreenClear.bind(this._os);
-    //return this.gclear(c);
-    
-    // TODO this could use speeding up
-    const micro = this._os;
+    const vram = this._os.vram;
     var bmp = crom[ch.charCodeAt()-32];
-    const x0 = x, xw = x+micro.cw, yh = y+micro.ch;
+    const x0 = x, xw = x+this._os.cw, yh = y+this._os.ch;
     if (bg !== undefined)
       for (x = x0; x < xw; ++x)
-        micro.bspScreenPixel(x, y, bg);
+        vram[y*192+x] = bg;
     for (++y; y < yh; ++y)
       for (x = x0; x < xw; ++x, bmp >>>= 1)
-        if (((bmp&1) === 1) && fg !== undefined) micro.bspScreenPixel(x, y, fg);
-        else if (((bmp&1) === 0) && bg !== undefined) micro.bspScreenPixel(x, y, bg);
+        if (((bmp&1) === 1) && fg !== undefined) vram[y*192+x] = fg;
+        else if (((bmp&1) === 0) && bg !== undefined) vram[y*192+x] = bg;
   }
 
   syscall_gclear(c) {
     systrace('gclear', this, arguments);
-    this.gclear = this._os.bspScreenClear.bind(this._os);
-    return this.gclear(c);
+    this._os.vram.fill(c);
   }
 
   syscall_gpixel(x, y, c) {
     systrace('gpixel', this, arguments);
-    this.gpixel = this._os.bspScreenPixel.bind(this._os);
-    return this.gpixel(x, y, c);
+    this._os.vram[y*192+x] = c;
   }
 
   syscall_grect(x, y, w, h, c) {
     systrace('grect', this, arguments);
-    this.grect = this._os.bspScreenRect.bind(this._os);
-    return this.grect(x, y, w, h, c);
+    const x1 = x, x2 = x+w-1;
+    const y2 = y+h-1;
+    for (; y <= y2; ++y) {
+      for (x = x1; x <= x2; ++x) {
+        this._os.vram[y*192+x] = c;
+      }
+    }
   }
 
   syscall_grecto(x, y, w, h, c) {
     systrace('grecto', this, arguments);
-    this.grecto = this._os.bspScreenRectO.bind(this._os);
-    return this.grecto(x, y, w, h, c);
+    const x1 = x, x2 = x+w-1;
+    const y2 = y+h-1;
+    for (x = x1; x <= x2; ++x) {
+      this._os.vram[y*192+x] = c;
+    }
+    for (++y; y < y2; ++y) {
+      this._os.vram[y*192+x2] = this._os.vram[y*192+x1] = c;
+    }
+    for (x = x1; x <= x2; ++x) {
+      this._os.vram[y*192+x] = c;
+    }
   }
 
   syscall_gtext(str, x, y, fg, bg) {
@@ -682,6 +691,7 @@ module.exports = class Micro {
 
   onDraw() {
     if (this.vc.onDraw) this.vc.onDraw();
+    this.bspScreenFlip(this.vram);
   }
 
   onFileImport(name, contents) {
@@ -791,7 +801,6 @@ module.exports = class Micro {
   // NOTE currently using bsp_blah for bsp-private storage
 
   bspAudioBeep() {console.log('bspAudioBeep')}
-
 
   bspExport(name, contents) {console.log('bspExport')}
 
