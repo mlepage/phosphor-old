@@ -65,6 +65,21 @@ do
     sys_rect(nil, ...)
   end
   
+  local sys_sget = js.global.__sys_sget
+  function sget(...)
+    return sys_sget(nil, ...)
+  end
+  
+  local sys_spr = js.global.__sys_spr
+  function spr(...)
+    sys_spr(nil, ...)
+  end
+  
+  local sys_sset = js.global.__sys_sset
+  function sset(...)
+    sys_sset(nil, ...)
+  end
+  
   function write(...)
     sys_write(nil, ...)
   end
@@ -82,6 +97,9 @@ module.exports = class Lua {
     window.__sys_pget = this.sys.pget.bind(this.sys);
     window.__sys_pset = this.sys.pset.bind(this.sys);
     window.__sys_rect = this.sys.grect.bind(this.sys);
+    window.__sys_sget = this.sys.sget.bind(this.sys);
+    window.__sys_spr = this.sys.spr.bind(this.sys);
+    window.__sys_sset = this.sys.sset.bind(this.sys);
     window.__sys_write = this.sys.write.bind(this.sys);
     this.L.execute(init);
     delete window.__sys_clear;
@@ -92,6 +110,9 @@ module.exports = class Lua {
     delete window.__sys_pget;
     delete window.__sys_pset;
     delete window.__sys_rect;
+    delete window.__sys_sget;
+    delete window.__sys_spr;
+    delete window.__sys_sset;
     delete window.__sys_write;
     
     // HACK to choose code to run
@@ -126,7 +147,7 @@ module.exports = class Lua {
 
   _onDraw() {
     this.L.execute('draw()');
-    this.sys._os.bspScreenFlip(this.sys._os.vram); // TODO better place for this
+    this.sys._os.bspScreenFlip(this.sys._os.mem); // TODO better place for this
   }
 
   _onUpdate() {

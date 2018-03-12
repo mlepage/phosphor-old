@@ -5,7 +5,21 @@
 
 const floor = Math.floor;
 
-const VRAM = 0x0000;
+const toHex = [
+  '0', '1', '2', '3', '4', '5', '6', '7',
+  '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+];
+const fromHex = {
+  '0':0x0, '1':0x1, '2':0x2, '3':0x3, '4':0x4,
+  '5':0x5, '6':0x6, '7':0x7, '8':0x8, '9':0x9,
+  'a':0xa, 'b':0xb, 'c':0xc, 'd':0xd, 'e':0xe, 'f':0xf,
+  'A':0xa, 'B':0xb, 'C':0xc, 'D':0xd, 'E':0xe, 'F':0xf
+};
+
+const VRAM = 0x0000; // video ram
+const SRAM = 0x3000; // sprite ram
+const MRAM = 0x5000; // map ram
+const URAM = 0x8000; // ui sprite ram
 const W = 192; // for graphics
 const H = 128; // for graphics
 
@@ -231,6 +245,20 @@ function fileWrite(handle, ...args) {
 // global
 window.loadedFile = undefined;
 
+function pget(vram, x, y) {
+  // 2px per byte ordered 1100 3322 5544 ...
+  const addr = (y*96)+(x>>1), shift = (x&1)<<2;
+  const byte = vram[addr];
+  return (byte>>shift) & 0x0f;
+}
+
+function pset(vram, x, y, c) {
+  // 2px per byte ordered 1100 3322 5544 ...
+  const addr = (y*96)+(x>>1), shift = (x&1)<<2;
+  var byte = vram[addr];
+  vram[addr] = (byte & (0xf0>>shift)) | (c<<shift);
+}
+
 module.exports = class Micro {
 
   constructor() {
@@ -258,12 +286,22 @@ module.exports = class Micro {
   async reboot() {
     this.sys._cwd = '/';
     
-    this.vram = new Uint8Array(192*128);
+    this.mem = new Uint8Array(0x9000); // 32 KiB RAM + 4 KiB ROM
+    
+    // TEMP load memory image from hardcoded file
+    const memstr = this.sys._os.filesystem['mcomputer:mem'];
+    if (memstr)
+      this.sys.memwrite(0x3000, memstr);
+    
+    // ui sprites
+    this.sys.memwrite(URAM+1*32, '0000000000330330003000300030003000300030003000300033033000000000');
+    this.sys.memwrite(URAM+2*32, '0000000000333300033333300303303003333330033003300033330000000000');
+    this.sys.memwrite(URAM+3*32, '0000000003300330033333300030030000300300033333300330033000000000');
+    this.sys.memwrite(URAM+4*32, '0000000000003000003030000033303000333330033333300333333000000000');
+    this.sys.memwrite(URAM+5*32, '0000000000333300003003000030030000300300033033000330330000000000');
     
     this.keystate = [0, 0, 0, 0]; // 32 bits each
     
-    // 0x3000 will store 192x128 graphics buffer (two pixels per byte)
-    this.mem = new Uint8Array(0x3000);
     this.gstate = {
       c: 0,
       pal: [ 0x80, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 ],
@@ -360,51 +398,54 @@ module.exports = class Micro {
 
   syscall_gchar(ch, x, y, fg, bg) {
     systrace('gchar', this, arguments);
-    const vram = this._os.vram;
+    const mem = this._os.mem;
     var bmp = crom[ch.charCodeAt()-32];
     const x0 = x, xw = x+this._os.cw, yh = y+this._os.ch;
     if (bg !== undefined)
       for (x = x0; x < xw; ++x)
-        vram[y*192+x] = bg;
+        pset(mem, x, y, bg);
     for (++y; y < yh; ++y)
       for (x = x0; x < xw; ++x, bmp >>>= 1)
-        if (((bmp&1) === 1) && fg !== undefined) vram[y*192+x] = fg;
-        else if (((bmp&1) === 0) && bg !== undefined) vram[y*192+x] = bg;
+        if (((bmp&1) === 1) && fg !== undefined) pset(mem, x, y, fg);
+        else if (((bmp&1) === 0) && bg !== undefined) pset(mem, x, y, bg);
   }
 
   syscall_gclear(c) {
     systrace('gclear', this, arguments);
-    this._os.vram.fill(c);
+    this._os.mem.fill((c<<4)|c, 0, 0x3000);
   }
 
   syscall_gpixel(x, y, c) {
     systrace('gpixel', this, arguments);
-    this._os.vram[y*192+x] = c;
+    pset(this._os.mem, x, y, c);
   }
 
   syscall_grect(x, y, w, h, c) {
     systrace('grect', this, arguments);
+    const mem = this._os.mem;
     const x1 = x, x2 = x+w-1;
     const y2 = y+h-1;
     for (; y <= y2; ++y) {
       for (x = x1; x <= x2; ++x) {
-        this._os.vram[y*192+x] = c;
+        pset(mem, x, y, c);
       }
     }
   }
 
   syscall_grecto(x, y, w, h, c) {
     systrace('grecto', this, arguments);
+    const mem = this._os.mem;
     const x1 = x, x2 = x+w-1;
     const y2 = y+h-1;
     for (x = x1; x <= x2; ++x) {
-      this._os.vram[y*192+x] = c;
+      pset(mem, x, y, c);
     }
     for (++y; y < y2; ++y) {
-      this._os.vram[y*192+x2] = this._os.vram[y*192+x1] = c;
+      pset(mem, x1, y, c);
+      pset(mem, x2, y, c);
     }
     for (x = x1; x <= x2; ++x) {
-      this._os.vram[y*192+x] = c;
+      pset(mem, x, y, c);
     }
   }
 
@@ -562,6 +603,13 @@ module.exports = class Micro {
     // TODO seek, but not for terminals
   }
 
+  syscall_sget(n, x, y) {
+    const mem = this._os.mem;
+    const a = SRAM+(n<<5)+(y<<2)+(x>>1), s = (x&1)<<2;
+    const b = mem[a];
+    return (b>>s)&0xf;
+  }
+
   syscall_spawn(...args) {
     systrace('spawn', this, arguments);
     const name = args[0];
@@ -582,6 +630,55 @@ module.exports = class Micro {
       resolve(process.main ? process.main(...args) : 0);
     });
     return process;
+  }
+
+  syscall_spr(n, x, y) {
+    const mem = this._os.mem;
+    var a = SRAM+(n<<5), b;
+    for (let Y = y+8; y < Y; ++y) {
+      for (var j = 0; j < 8;) {
+        b = mem[a++];
+        pset(mem, x+j++, y, b&0xf);
+        pset(mem, x+j++, y, b>>4);
+      }
+    }
+  }
+
+  syscall_sset(n, x, y, c) {
+    const mem = this._os.mem;
+    const a = SRAM+(n<<5)+(y<<2)+(x>>1), s = (x&1)<<2;
+    const b = mem[a];
+    mem[a] = (b&(0xf0>>s)) | (c<<s);
+  }
+
+  syscall_uget(n, x, y) {
+    const mem = this._os.mem;
+    const a = URAM+(n<<5)+(y<<2)+(x>>1), s = (x&1)<<2;
+    const b = mem[a];
+    return (b>>s)&0xf;
+  }
+
+  syscall_uset(n, x, y, c) {
+    const mem = this._os.mem;
+    const a = URAM+(n<<5)+(y<<2)+(x>>1), s = (x&1)<<2;
+    const b = mem[a];
+    mem[a] = (b&(0xf0>>s)) | (c<<s);
+  }
+
+  syscall_uspr(n, x, y) {
+    const mem = this._os.mem;
+    var a = URAM+(n<<5), b, c;
+    for (let Y = y+8; y < Y; ++y) {
+      for (var j = 0; j < 8; j+=2) {
+        b = mem[a++];
+        c = b&0xf;
+        if (c != 0)
+          pset(mem, x+j, y, c);
+        c = b>>4;
+        if (c != 0)
+          pset(mem, x+j+1, y, c);
+      }
+    }
   }
 
   // Equivalent of linux openvt/chvt (TODO improve API)
@@ -609,89 +706,58 @@ module.exports = class Micro {
 
   // graphics ------------------------------------------------------------------
 
-  syscall_clear(c) {
-    const os = this._os;
-    if (c === undefined) c = os.gstate.c; // default color
-    os.bspScreenClear(c);
-    //c |= c<<4; // two pixels per byte
-    //this._os.memset(VRAM, c, W*H/2);
+  syscall_pal() {
   }
 
-  syscall_circle(x, y, r, c, fill) {
+  syscall_pget() {
   }
 
-  syscall_line(x1, y1, x2, y2, c) {
-  }
-
-  // pal c1 c2 [trans]
-  syscall_pal(c1, c2, trans) {
-    this._os.gstate.pal[c1] = c2 | (trans?0x80:0x00);
-  }
-
-  // pget x y
-  syscall_pget(x, y) {
-    const addr = VRAM + floor((y*W + x)/2); // 2px per byte ordered 1100 3322 5544 ...
-    const byte = this._os.mem[addr];
-    return (byte >>> (4*(x%2))) & 0xf;
-  }
-
-  // pset x y [c]
   syscall_pset(x, y, c) {
-    const os = this._os;
-    if (c === undefined) c = os.gstate.c; // default color
-    c = os.gstate.pal[c]; // palette mapping
-    if (c&0x80) return; // transparent
-    os.bspScreenPixel(x, y, c);
-    //const addr = VRAM + floor((y*W + x)/2); // 2px per byte ordered 1100 3322 5544 ...
-    //var byte = os.mem[addr];
-    //byte &= 0xf0 >>> (4*(x%2));
-    //byte |= c << (4*(x%2));
-    //os.mem[addr] = byte;
   }
 
   syscall_rect(x, y, w, h, c, fill) {
-    const os = this._os;
-    if (c === undefined) c = os.gstate.c; // default color
-    c = os.gstate.pal[c]; // palette mapping
-    if (c&0x80) return; // transparent
-    os.bspScreenRect(x, y, w, h, c);
-    // TODO set vram
-  }
-
-  syscall_text() {
   }
 
   // memory --------------------------------------------------------------------
 
-  memcpy(dest_addr, source_addr, len) {
-    if (dest_addr < source_addr) {
-      while (len--) this.mem[dest_addr++] = this.mem[source_addr++];
-    } else if (source_addr < dest_addr) {
-      dest_addr += len;
-      source_addr += len;
-      while (len--) this.mem[--dest_addr] = this.mem[--source_addr];
+  syscall_memcpy(dest_addr, source_addr, len) {
+    this._os.mem.copyWithin(dest_addr, source_addr, source_addr+len);
+  }
+
+  syscall_memread(addr, len) {
+    const mem = this._os.mem;
+    var str = '';
+    for (; 0 < len; --len) {
+      var b = mem[addr++];
+      str += toHex[b&0xf] + toHex[b>>4];
+    }
+    return str;
+  }
+
+  syscall_memset(dest_addr, val, len) {
+    this._os.mem.fill(val, dest_addr, dest_addr+len);
+  }
+
+  syscall_memwrite(addr, str) {
+    const mem = this._os.mem;
+    for (var i = 0, len = str.length&~1; i < len; i+=2) {
+      mem[addr++] = fromHex[str.charAt(i)] | (fromHex[str.charAt(i|1)]<<4);
     }
   }
 
-  memset(dest_addr, val, len) {
-    while (len--) this.mem[dest_addr++] = val;
+  syscall_peek(addr) {
+    return this._os.mem[addr];
   }
 
-  peek(addr) {
-    //if (addr < 0 || 0x7fff < addr) throw 'SIGSEGV';
-    return this.mem[addr];
-  }
-
-  poke(addr, val) {
-    //if (addr < 0 || 0x7fff < addr) throw 'SIGSEGV';
-    this.mem[addr] = val;
+  syscall_poke(addr, val) {
+    this._os.mem[addr] = val;
   }
 
   // ---------------------------------------------------------------------------
 
   onDraw() {
     if (this.vc.onDraw) this.vc.onDraw();
-    this.bspScreenFlip(this.vram);
+    this.bspScreenFlip(this.mem);
   }
 
   onFileImport(name, contents) {

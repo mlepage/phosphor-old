@@ -3,103 +3,206 @@
 
 'use strict';
 
-const floor = Math.floor;
+const Ui = require('./ui.js');
 
-const CANVASX = 16;
-const CANVASY = 16;
-const PALETTEX = 144;
-const PALETTEY = 16;
-const SHEETX = 0;
-const SHEETY = 128-4*8-7;
+const floor = Math.floor;
 
 module.exports = class SpriteEditor {
 
   main() {
-    this.data = new Uint8Array(24*4 * 8*8);
-    this.color = 15;
-    this.paint = false;
-    this.spritex = 0;
-    this.spritey = 0;
+    const sys = this.sys;
+    
+    var color = 15; // paint color
+    var sprite = 0; // sprite index
+
+    this.ui = new Ui([
+      { // bg
+        x: 0, y: 0, w: 192, h: 128,
+        onDraw() {
+          sys.gclear(3);
+          sys.grect(0, 0, 192, 8, 11);
+          sys.grect(0, 120, 192, 8, 11);
+        },
+      },
+      { // sprite
+        x: 13, y: 16, w: 96, h: 96,
+        onDraw() {
+          sys.grecto(this.x-1, this.y-1, this.w+2, this.h+2, 0);
+          for (var y = 0; y < 8; ++y)
+            for (var x = 0; x < 8; ++x)
+              sys.grect(this.x+x*12, this.y+y*12, 12, 12, sys.sget(sprite, x, y));
+        },
+        onMouseDown(e) {
+          sys.sset(sprite, floor(e.x/12), floor(e.y/12), color);
+        },
+      },
+      { // sheet
+        x: 120, y: 48, w: 64, h: 64,
+        onDraw() {
+          sys.grecto(this.x-1, this.y-1, this.w+2, this.h+2, 0);
+          for (var y = 0; y < 8; ++y)
+            for (var x = 0; x < 8; ++x)
+              sys.spr((y<<4)+x, this.x+(x<<3), this.y+(y<<3));
+          sys.grecto(this.x+((sprite&0xf)<<3)-1, this.y+((sprite&0xf0)>>1)-1, 10, 10, 15);
+        },
+        onMouseDown(e) {
+          sprite = ((e.y&0xf8)<<1)+(e.x>>3);
+        },
+      },
+      { // palette
+        x: 120, y: 16, w: 64, h: 16,
+        onDraw() {
+          sys.grecto(this.x-1, this.y-1, this.w+2, this.h+2, 0);
+          for (var c = 0; c < 16; ++c)
+            sys.grect(this.x+((c&0x7)<<3), this.y+(c&0x8), 8, 8, c);
+          sys.grecto(this.x+((color&0x7)<<3)-1, this.y+(color&0x8)-1, 10, 10, 15);
+          if (color == 15)
+            sys.grecto(this.x+((color&0x7)<<3), this.y+(color&0x8), 8, 8, 3);
+        },
+        onMouseDown(e) {
+          color = (e.y&0x8)+(e.x>>3);
+        },
+      },
+      { // menu button (code)
+        x:152, y: 0, w: 8, h: 8,
+        onDraw() {
+          sys.uspr(1, this.x, this.y);
+        },
+        onMouseDown() {
+          sys.vc(1);
+        },
+      },
+      { // menu button (sprite)
+        x:160, y: 0, w: 8, h: 8,
+        onDraw() {
+          sys.uspr(2, this.x, this.y);
+        },
+        onMouseDown() {
+          sys.vc(2);
+        },
+      },
+      { // menu button (map)
+        x:168, y: 0, w: 8, h: 8,
+        onDraw() {
+          sys.uspr(3, this.x, this.y);
+        },
+        onMouseDown() {
+          sys.vc(3);
+        },
+      },
+      { // menu button (sound)
+        x:176, y: 0, w: 8, h: 8,
+        onDraw() {
+          sys.uspr(4, this.x, this.y);
+        },
+        onMouseDown() {
+          sys.vc(4);
+        },
+      },
+      { // menu button (music)
+        x:184, y: 0, w: 8, h: 8,
+        onDraw() {
+          sys.uspr(5, this.x, this.y);
+        },
+        onMouseDown() {
+          sys.vc(5);
+        },
+      },
+      { // tool button (draw)
+        x:2, y: 18, w: 8, h: 8,
+        onDraw() {
+          sys.grect(this.x, this.y, this.w, this.h, 7);
+        },
+      },
+      { // tool button
+        x:2, y: 30, w: 8, h: 8,
+        onDraw() {
+          sys.grect(this.x, this.y, this.w, this.h, 7);
+        },
+      },
+      { // tool button
+        x:2, y: 42, w: 8, h: 8,
+        onDraw() {
+          sys.grect(this.x, this.y, this.w, this.h, 7);
+        },
+      },
+      { // tool button
+        x:2, y: 54, w: 8, h: 8,
+        onDraw() {
+          sys.grect(this.x, this.y, this.w, this.h, 7);
+        },
+      },
+      { // tool button
+        x:2, y: 66, w: 8, h: 8,
+        onDraw() {
+          sys.grect(this.x, this.y, this.w, this.h, 7);
+        },
+      },
+      { // tool button
+        x:2, y: 78, w: 8, h: 8,
+        onDraw() {
+          sys.grect(this.x, this.y, this.w, this.h, 7);
+        },
+      },
+      { // tool button
+        x:2, y: 90, w: 8, h: 8,
+        onDraw() {
+          sys.grect(this.x, this.y, this.w, this.h, 7);
+        },
+      },
+      { // tool button
+        x:2, y: 102, w: 8, h: 8,
+        onDraw() {
+          sys.grect(this.x, this.y, this.w, this.h, 7);
+        },
+      },
+      { // scroll button
+        x:128+8+2, y: 128-16+2, w: 5, h: 5,
+        onDraw() {
+          sys.grect(this.x, this.y, this.w, this.h, 7);
+        },
+      },
+      { // scroll button
+        x:128+32+2, y: 128-16+2, w: 5, h: 5,
+        onDraw() {
+          sys.grect(this.x, this.y, this.w, this.h, 7);
+        },
+      },
+      { // scroll button
+        x:192-8+2, y: 128-64+2, w: 5, h: 5,
+        onDraw() {
+          sys.grect(this.x, this.y, this.w, this.h, 7);
+        },
+        onMouseDown() {
+          // TEMP for working on ui sprites
+          //console.log('save ui sprite');
+          //sys.memcpy(0x8000+(sprite&0xf)*32, 0x3000+sprite*32, 32);
+          //console.log(sys.memread(0x8000+(sprite&0xf)*32, 32));
+        },
+      },
+      { // scroll button
+        x:192-8+2, y: 128-40+2, w: 5, h: 5,
+        onDraw() {
+          sys.grect(this.x, this.y, this.w, this.h, 7);
+        },
+        onMouseDown() {
+          // TEMP for working on ui sprites
+          //console.log('load ui sprite');
+          //sys.memcpy(0x3000+sprite*32, 0x8000+(sprite&0xf)*32, 32);
+          //console.log(sys.memread(0x8000+(sprite&0xf)*32, 32));
+        },
+      },
+    ], this);
   }
 
   // ---------------------------------------------------------------------------
 
-  onDraw() {
-    this.sys.gclear(7);
-    this.sys.grect(0, 0, 192, 7, 3);
-    this.sys.grect(0, 128-7, 192, 7, 3);
-    this.sys.gtext('SPRITE EDITOR (UNDER CONSTRUCTION)', 0, 0, 15);
-    
-    var i, x, y;
-    
-    // palette
-    this.sys.grecto(PALETTEX-1, PALETTEY-1, 4*8+2, 4*8+2, 0);
-    for (y = 0; y != 4; ++y) {
-      for (x = 0; x != 4; ++x) {
-        this.sys.grect(PALETTEX + 8*x, PALETTEY + 8*y, 8, 8, 4*y + x);
-      }
-    }
-    x = PALETTEX+8*(this.color%4);
-    y = PALETTEY+8*floor(this.color/4);
-    this.sys.grecto(x, y, 8, 8, 15);
-    this.sys.grecto(x-1, y-1, 8+2, 8+2, 0);
-    
-    // sheet
-    i = 0;
-    for (y = 0; y != 32; ++y) {
-      for (x = 0; x != 192; ++x) {
-        this.sys.gpixel(SHEETX + x, SHEETY + y, this.data[i++]);
-      }
-    }
-    this.sys.grecto(SHEETX+this.spritex*8, SHEETY+this.spritey*8, 8, 8, 15);
-    
-    // sprite
-    this.sys.grecto(CANVASX-1, CANVASY-1, 8*8+2, 8*8+2, 0);
-    for (y = 0; y != 8; ++y) {
-      for (x = 0; x != 8; ++x) {
-        i = i = (this.spritey*8+y)*192 + this.spritex*8 + x;
-        this.sys.grect(CANVASX + 8*x, CANVASY + 8*y, 8, 8, this.data[i]);
-      }
-    }
+  onResume() {
   }
 
-  onKeyDown(e) {
-  }
-
-  onMouseDown(e) {
-    if (CANVASX <= e.x && e.x < CANVASX + 8*8 && CANVASY <= e.y && e.y < CANVASY + 8*8) {
-      const x = floor((e.x - CANVASX) / 8);
-      const y = floor((e.y - CANVASY) / 8);
-      const i = (this.spritey*8+y)*192 + this.spritex*8 + x;
-      this.data[i] = this.color;
-      this.paint = true;
-    }
-    if (PALETTEX <= e.x && e.x < PALETTEX + 4*8 && PALETTEY <= e.y && e.y < PALETTEY + 4*8) {
-      const x = floor((e.x - PALETTEX) / 8);
-      const y = floor((e.y - PALETTEY) / 8);
-      this.color = y*4 + x;
-    }
-    if (SHEETX <= e.x && e.x < SHEETX + 24*8 && SHEETY <= e.y && e.y < SHEETY + 4*8) {
-      this.spritex = floor((e.x - SHEETX) / 8);
-      this.spritey = floor((e.y - SHEETY) / 8);
-    }
-  }
-
-  onMouseMove(e) {
-    if (!this.paint) return;
-    if (CANVASX <= e.x && e.x < CANVASX + 8*8 && CANVASY <= e.y && e.y < CANVASY + 8*8) {
-      const x = floor((e.x - CANVASX) / 8);
-      const y = floor((e.y - CANVASY) / 8);
-      const i = (this.spritey*8+y)*192 + this.spritex*8 + x;
-      this.data[i] = this.color;
-    }
-  }
-
-  onMouseUp(e) {
-    this.paint = false;
-  }
-
-  onMouseWheel(e) {
+  onSuspend() {
+    // HACK directly access memory and filesystem
+    this.sys._os.filesystem['mcomputer:mem'] = this.sys.memread(0x3000, 0x5000);
   }
 
 };

@@ -188,8 +188,8 @@ module.exports = class CodeEditor {
 
   onDraw() {
     const emptyColor = 3;
-    const cursorColor = 14;
-    const selectColor = 7;
+    const cursorColor = 11;
+    const selectColor = 5;
     const textColor = 15;
     const cursorTextColor = 3;
     const selectTextColor = 3;
@@ -198,24 +198,11 @@ module.exports = class CodeEditor {
     const cCursor = this.cursor[1];
     
     // Menu bar
-    this.sys.grect(0, 0, 192, 7, 14);
-    this.sys.gtext('{CODE}', 0, 0, 0);
-    
+    this.sys.grect(0, 0, 192, 7, 11);
+
     // Status bar
-    this.sys.grect(0, 121, 192, 7, 14);
-    this.sys.gtext(`LN ${1+rCursor}  COL ${1+cCursor}`, 0, 121, 0);
-    
-    // Construction stripes
-    for (var i = 0; i < 13; ++i) {
-      for (var j = 0; j < 7; ++j) {
-        this.sys.grect(36+i*12+6-j, j, 6, 1, 0);
-      }
-    }
-    for (var i = 0; i < 10; ++i) {
-      for (var j = 0; j < 7; ++j) {
-        this.sys.grect(72+i*12+6-j, 121+j, 6, 1, 0);
-      }
-    }
+    this.sys.grect(0, 121, 192, 7, 11);
+    this.sys.gtext(`LN ${1+rCursor}  COL ${1+cCursor}`, 0, 121, 3);
     
     // Text area
     const sel = this.select;

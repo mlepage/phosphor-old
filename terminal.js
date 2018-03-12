@@ -98,7 +98,7 @@ module.exports = class Terminal {
     
     this.fg = 15; // foreground color
     this.bg = 0; // background color
-    this.cur = 6; // cursor color
+    this.cur = 11; // cursor color
     
     this.sys._os.onDraw();
   }

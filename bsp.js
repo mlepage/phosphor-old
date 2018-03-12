@@ -53,10 +53,10 @@ const vertexShaderSrc = `
   attribute vec2 a_texcoord;
   
   varying vec2 v_texcoord;
-  
+
   void main() {
-     gl_Position = a_position;
-     v_texcoord = a_texcoord;
+    gl_Position = vec4(a_position.xy, 0, 1);
+    v_texcoord = a_texcoord;
   }
 `;
 
@@ -68,11 +68,12 @@ const fragmentShaderSrc = `
   uniform sampler2D u_texture;
   uniform sampler2D u_palette;
   
-  const vec2 coord = vec2(16, 0);
-  
   void main() {
-    float c = texture2D(u_texture, v_texcoord).r;
-    gl_FragColor = texture2D(u_palette, coord * c);
+    // low nibble (0) is even col, high nibble (1) is odd col
+    float nibble = floor(mod(v_texcoord.x*192.0, 2.0));
+    float byte = 255.0 * texture2D(u_texture, v_texcoord).r;
+    float index = mod(byte / (1.0+nibble*15.0), 16.0);
+    gl_FragColor = texture2D(u_palette, vec2(index/16.0, 0));
   }
 `;
 
@@ -257,7 +258,7 @@ module.exports = {
     micro.bsp_scale = scale; // TODO get scale from micro
     
     micro.bspScreenFlip = (vram) => {
-      gl.texImage2D(gl.TEXTURE_2D, texture, gl.LUMINANCE, 192, 128, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, vram);
+      gl.texImage2D(gl.TEXTURE_2D, texture, gl.LUMINANCE, 96, 128, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, vram);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     };
     
