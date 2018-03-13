@@ -163,7 +163,7 @@ module.exports = class Terminal {
     const r = l-this.s;
     if (r >= this.h) return;
     const c = min(this.c, this.w-1);
-    this.sys.gchar(this._char(l, c), c*5, 1+r*7, show ? this.bg : this.fg, show ? this.cur : this.bg);
+    this.sys.char(this._char(l, c), c*5, 1+r*7, show ? this.bg : this.fg, show ? this.cur : this.bg);
   }
 
   _write1(str) {
@@ -207,7 +207,7 @@ module.exports = class Terminal {
       if (l == lineCount) {
         for (; r < this.h; ++r)
           for (c = 0; c < this.w; ++c)
-            this.sys.gchar(' ', c*5, 1+r*7, this.fg, this.bg); // below last line
+            this.sys.char(' ', c*5, 1+r*7, this.fg, this.bg); // below last line
         break;
       }
       const line = this.L[l];
@@ -216,10 +216,10 @@ module.exports = class Terminal {
         if (c == charCount) {
           // Right of last character
           for (; c < this.w; ++c)
-            this.sys.gchar(' ', c*5, 1+r*7, this.fg, this.bg); // right of last character
+            this.sys.char(' ', c*5, 1+r*7, this.fg, this.bg); // right of last character
           break;
         }
-        this.sys.gchar(line.charAt(c), c*5, 1+r*7, this.fg, this.bg); // character
+        this.sys.char(line.charAt(c), c*5, 1+r*7, this.fg, this.bg); // character
       }
     }
     this._gfxCursor(true);

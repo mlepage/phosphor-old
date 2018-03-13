@@ -34,15 +34,15 @@ do
   
   log = print
   
-  local sys_pal = js.global.__sys_pal
-  function pal(...)
-    sys_pal(nil, ...)
-  end
+  --local sys_pal = js.global.__sys_pal
+  --function pal(...)
+  --  sys_pal(nil, ...)
+  --end
   
-  local sys_pget = js.global.__sys_pget
-  function pget(...)
-    sys_pget(nil, ...)
-  end
+  --local sys_pget = js.global.__sys_pget
+  --function pget(...)
+  --  sys_pget(nil, ...)
+  --end
   
   -- TODO not the best impl, handle table, etc.
   local sys_write = js.global.__sys_write
@@ -50,10 +50,10 @@ do
     sys_write(nil, concat({...}, ' '), '\\n')
   end
 
-  local sys_pset = js.global.__sys_pset
-  function pset(...)
-    sys_pset(nil, ...)
-  end
+  --local sys_pset = js.global.__sys_pset
+  --function pset(...)
+  --  sys_pset(nil, ...)
+  --end
   
   function read(...)
     yield()
@@ -62,7 +62,7 @@ do
   
   local sys_rect = js.global.__sys_rect
   function rect(...)
-    sys_rect(nil, ...)
+    sys_grect(nil, ...)
   end
   
   local sys_sget = js.global.__sys_sget
@@ -93,9 +93,9 @@ module.exports = class Lua {
     window.__sys_gclear = this.sys.gclear.bind(this.sys);
     window.__sys_grect = this.sys.grect.bind(this.sys);
     window.__sys_key = this.sys.key.bind(this.sys);
-    window.__sys_pal = this.sys.pal.bind(this.sys);
-    window.__sys_pget = this.sys.pget.bind(this.sys);
-    window.__sys_pset = this.sys.pset.bind(this.sys);
+    //window.__sys_pal = this.sys.pal.bind(this.sys);
+    //window.__sys_pget = this.sys.pget.bind(this.sys);
+    //window.__sys_pset = this.sys.pset.bind(this.sys);
     window.__sys_rect = this.sys.grect.bind(this.sys);
     window.__sys_sget = this.sys.sget.bind(this.sys);
     window.__sys_spr = this.sys.spr.bind(this.sys);
@@ -106,9 +106,9 @@ module.exports = class Lua {
     delete window.__sys_gclear;
     delete window.__sys_grect;
     delete window.__sys_key;
-    delete window.__sys_pal;
-    delete window.__sys_pget;
-    delete window.__sys_pset;
+    //delete window.__sys_pal;
+    //delete window.__sys_pget;
+    //delete window.__sys_pset;
     delete window.__sys_rect;
     delete window.__sys_sget;
     delete window.__sys_spr;

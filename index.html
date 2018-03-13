@@ -43,24 +43,46 @@ print('Hello', name)
 
 <pre>
 -- bounce (demo)
-x,y = 0,0
+r = 4
+x,y = 96,64
 dx,dy = 2,1
 
 function update()
   x,y = x+dx,y+dy
-  if (x <= 0 or 192 <= x) then dx = -dx end
-  if (y <= 0 or 128 <= y) then dy = -dy end
+  if x <= r or 192-r <= x then
+    dx = -dx
+    x = x+dx;
+  end
+  if y <= r or 128-r <= y then
+    dy = -dy
+    y = y+dy
+  end
 end
 
 function draw()
-  clear(2)
-  rect(x-4, y-4, 8, 8, 8)
+  clear(5)
+  rect(x-4, y-4, 8, 8, 11)
 end
 </pre>
 
-Type 'help' for more commands. Delete a file by loading it, then editing it to be empty.
+<p>Current short-term quirks: Delete a file by loading it, then editing it to be empty. Sprites are currently saved when *exiting* the sprite editor, and are global to all programs.</p>
+
+<p>Type 'help' for more commands.</p>
 
 <h1>Changelog</h1>
+
+<h2>2018-03-12</h2>
+
+<pre>
+- add last used graphics state (colors and palette)
+- add (incomplete) palette mapping and transparency
+- improve char/text syscalls
+- add character rom (and remove font loading from PNG)
+- use custom characters instead of ui sprites
+- add icons to sprite editor
+- add paging to sprite sheet (can edit all sprites now)
+- tweak bounce demo
+</pre>
 
 <h2>2018-03-11</h2>
 

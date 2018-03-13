@@ -202,7 +202,7 @@ module.exports = class CodeEditor {
 
     // Status bar
     this.sys.grect(0, 121, 192, 7, 11);
-    this.sys.gtext(`LN ${1+rCursor}  COL ${1+cCursor}`, 0, 121, 3);
+    this.sys.text(`LN ${1+rCursor}  COL ${1+cCursor}`, 0, 121, 3);
     
     // Text area
     const sel = this.select;
@@ -246,7 +246,7 @@ module.exports = class CodeEditor {
           bgColor = emptyColor;
           fgColor = textColor;
         }
-        this.sys.gchar(ch, x, y, fgColor, bgColor); // character
+        this.sys.char(ch, x, y, fgColor, bgColor); // character
       }
     }
     

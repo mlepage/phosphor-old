@@ -16,23 +16,18 @@ const fromHex = {
   'A':0xa, 'B':0xb, 'C':0xc, 'D':0xd, 'E':0xe, 'F':0xf
 };
 
-const VRAM = 0x0000; // video ram
-const SRAM = 0x3000; // sprite ram
-const MRAM = 0x5000; // map ram
-const URAM = 0x8000; // ui sprite ram
+const VRAM = 0x0000; // video ram (12K)
+const SRAM = 0x3000; // sprite ram (8K)
+const MRAM = 0x5000; // map ram (9K)
+const CRAM = 0x8000; // character ram (1K)
+const URAM = 0x8400; // ui sprite ram (1K)
 const W = 192; // for graphics
 const H = 128; // for graphics
 
-// Format is one byte per character, each bit is a pixel.
-// LSB is top left, next bit is to right, row major order.
-// abcde  first row is always blank (and omitted)
-// fABCD  first col is always blank (but present)
-// gEFGH  XWVUkTSRQj...HGFEgDCBAf is the order (MSB to LSB)
-// hIJKL
-// iMNOP
-// jQRST
-// kUVWX
-const crom = []; // character rom
+// Character ROM, 8 bytes per 128 characters
+// Each byte is one row, each bit (LSB to MSB) is one col (left to right)
+// Last 8 bytes (char 127 DEL) are width/height bytes for 4 banks of 32 chars
+const CROM = '0000000000000000004040400040000000a0a0000000000000a0e0a0e0a0000000e060c0e040000000a0804020a000000040a060a06100000040400000000000008040404080000000408080804000000000a040a0000000000040e0400000000000000000402000000000e0000000000000000000400000000181c06020000000c0a16121c000000040604040e0000000e001c020e1000000e001c001e0000000a0a0e18080000000e120e001e0000000c120e021c0000000e101804040000000c021c021c0000000c021c101c000000000004000400000000000400040200000804020408000000000e000e0000000004080018040000000e001c00040000000c021a120c1000000c02121e121000000e021e021e0000000c0212021c0000000e0212121e0000000e120e020e1000000e120e02020000000c120a121c10000002121e12121000000e0404040e0000000c1010121c000000021a060a02100000020202020e1000000e1a12121210000002161a12121000000c0212121c0000000e02121e020000000c0212121c0010000e02121e021000000c120c001e0000000e14040404000000021212121c0000000212121a04000000021212161e10000002121c021210000002121c101c0000000e1018040e1000000c0404040c00000002060c08101000000c0808080c000000040a000000000000000000000e1000000004080000000000000c12121c100000020e02121e000000000c12020c100000001c12121c100000000c0a160c00000008140e1404000000000c021c101c0000020e02121210000008000c080c10000000100810121c000002021e02121000000604040408100000000e1a1212100000000e021212100000000c02121c000000000e02121e020000000c12121c101000000c120202000000000c14080e000000040e140408100000000212121c0000000002121a04000000000212161e10000000021c02121000000002121c101c0000000e18040e1000000c0406040c00000004040404040000000c0808180c00000000041a0000000008080507050705070';
 
 const mrom = {}; // module rom
 
@@ -41,12 +36,10 @@ const systraceEnable = {
   'cd': true,
   'cp': true,
   'export': true,
-  'gchar': false,
   'gclear': false,
   'gpixel': false,
   'grect': false,
   'grecto': false,
-  'gtext': false,
   'import': true,
   'input': true,
   'key': true,
@@ -80,18 +73,25 @@ print('Hello', name)
 `;
 
 const demoBounce = `-- bounce (demo)
-x,y = 0,0
+r = 4
+x,y = 96,64
 dx,dy = 2,1
 
 function update()
   x,y = x+dx,y+dy
-  if (x <= 0 or 192 <= x) then dx = -dx end
-  if (y <= 0 or 128 <= y) then dy = -dy end
+  if x <= r or 192-r <= x then
+    dx = -dx
+    x = x+dx;
+  end
+  if y <= r or 128-r <= y then
+    dy = -dy
+    y = y+dy
+  end
 end
 
 function draw()
-  clear(2)
-  rect(x-4, y-4, 8, 8, 8)
+  clear(5)
+  rect(x-4, y-4, 8, 8, 11)
 end
 `;
 
@@ -247,16 +247,16 @@ window.loadedFile = undefined;
 
 function pget(vram, x, y) {
   // 2px per byte ordered 1100 3322 5544 ...
-  const addr = (y*96)+(x>>1), shift = (x&1)<<2;
-  const byte = vram[addr];
-  return (byte>>shift) & 0x0f;
+  const a = (y*96)+(x>>1), s = (x&1)<<2;
+  const b = vram[a];
+  return (b>>s)&0xf;
 }
 
 function pset(vram, x, y, c) {
   // 2px per byte ordered 1100 3322 5544 ...
-  const addr = (y*96)+(x>>1), shift = (x&1)<<2;
-  var byte = vram[addr];
-  vram[addr] = (byte & (0xf0>>shift)) | (c<<shift);
+  const a = (y*96)+(x>>1), s = (x&1)<<2;
+  var b = vram[a];
+  vram[a] = (b&(0xf0>>s)) | (c<<s);
 }
 
 module.exports = class Micro {
@@ -293,6 +293,9 @@ module.exports = class Micro {
     if (memstr)
       this.sys.memwrite(0x3000, memstr);
     
+    // character rom
+    this.sys.memwrite(CRAM+32*8, CROM);
+    
     // ui sprites
     this.sys.memwrite(URAM+1*32, '0000000000330330003000300030003000300030003000300033033000000000');
     this.sys.memwrite(URAM+2*32, '0000000000333300033333300303303003333330033003300033330000000000');
@@ -302,10 +305,11 @@ module.exports = class Micro {
     
     this.keystate = [0, 0, 0, 0]; // 32 bits each
     
-    this.gstate = {
-      c: 0,
-      pal: [ 0x80, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 ],
-    }; // graphics state
+    // TEMP graphics state (not yet in memory map)
+    this.c1 = 15; // primary color (index or undefined)
+    this.c2 = undefined; // secondary color (index or undefined)
+    this.pal = // palette map (index or undefined)
+      [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 ];
     
     this.VC = []; // virtual consoles
     this.vc = this.VC; // current virtual console (temporarily not a vc)
@@ -390,24 +394,54 @@ module.exports = class Micro {
     return name;
   }
 
+  syscall_char(ch, x, y, c1, c2) {
+    const os = this._os, mem = os.mem, pal = os.pal;
+    if (c1 != undefined || c2 != undefined) {
+      os.c1 = c1;
+      os.c2 = c2;
+    } else {
+      c1 = os.c1;
+      c2 = os.c2;
+    }
+    if (c1 != undefined)
+      c1 = pal[c1];
+    if (c2 != undefined)
+      c2 = pal[c2];
+    if (typeof(ch) == 'string')
+      ch = ch.charCodeAt();
+    var a = CRAM+0x3f8+((ch&~31)>>4);
+    const x_ = x, xw = x+mem[a], yh = y+mem[++a];
+    a = CRAM+(ch<<3);
+    if (c1 != undefined && c2 != undefined) {
+      for (; y < yh; ++y) {
+        var b = mem[a++];
+        for (x = x_; x < xw; ++x, b>>>=1) {
+          pset(mem, x, y, b&1 ? c1 : c2);
+        }
+      }
+    } else if (c1 != undefined) {
+      for (; y < yh; ++y) {
+        var b = mem[a++];
+        for (x = x_; x < xw; ++x, b>>>=1) {
+          if ((b&1) === 1)
+            pset(mem, x, y, c1);
+        }
+      }
+    } else if (c2 != undefined) {
+      for (; y < yh; ++y) {
+        var b = mem[a++];
+        for (x = x_; x < xw; ++x, b>>>=1) {
+          if ((b&1) === 0)
+            pset(mem, x, y, c2);
+        }
+      }
+    }
+  }
+
   syscall_export() {
     systrace('export', this, arguments);
     const json = JSON.stringify(filesystem);
     this._os.bspExport('filesystem.json', json);
-  }
-
-  syscall_gchar(ch, x, y, fg, bg) {
-    systrace('gchar', this, arguments);
-    const mem = this._os.mem;
-    var bmp = crom[ch.charCodeAt()-32];
-    const x0 = x, xw = x+this._os.cw, yh = y+this._os.ch;
-    if (bg !== undefined)
-      for (x = x0; x < xw; ++x)
-        pset(mem, x, y, bg);
-    for (++y; y < yh; ++y)
-      for (x = x0; x < xw; ++x, bmp >>>= 1)
-        if (((bmp&1) === 1) && fg !== undefined) pset(mem, x, y, fg);
-        else if (((bmp&1) === 0) && bg !== undefined) pset(mem, x, y, bg);
   }
 
   syscall_gclear(c) {
@@ -446,13 +480,6 @@ module.exports = class Micro {
     }
     for (x = x1; x <= x2; ++x) {
       pset(mem, x, y, c);
-    }
-  }
-
-  syscall_gtext(str, x, y, fg, bg) {
-    systrace('gtext', this, arguments);
-    for (var i = 0, count = str.length; i < count; ++i, x+=5) {
-      this.gchar(str.charAt(i), x, y, fg, bg);
     }
   }
 
@@ -651,6 +678,13 @@ module.exports = class Micro {
     mem[a] = (b&(0xf0>>s)) | (c<<s);
   }
 
+  syscall_text(str, x, y, c1, c2) {
+    const len = str.length;
+    for (var i = 0; i < len; ++i, x+=5) {
+      this.char(str.charAt(i), x, y, c1, c2);
+    }
+  }
+
   syscall_uget(n, x, y) {
     const mem = this._os.mem;
     const a = URAM+(n<<5)+(y<<2)+(x>>1), s = (x&1)<<2;
@@ -702,20 +736,6 @@ module.exports = class Micro {
     } else {
       return fileWrite(handle, ...args);
     }
-  }
-
-  // graphics ------------------------------------------------------------------
-
-  syscall_pal() {
-  }
-
-  syscall_pget() {
-  }
-
-  syscall_pset(x, y, c) {
-  }
-
-  syscall_rect(x, y, w, h, c, fill) {
   }
 
   // memory --------------------------------------------------------------------
@@ -883,10 +903,5 @@ module.exports = class Micro {
   bspScreenRectO(x, y, w, h, c) {console.log('bspScreenRectO')}
 
   bspScreenScale(scale) {console.log('bspScreenScale')}
-
-  // TODO deal with character rom, palette rom, size, scale, etc.
-  ctlCharacterRom(rom) {
-    for (var i = 0; i < 96; ++i) crom[i] = rom[i];
-  }
 
 };
