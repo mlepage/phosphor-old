@@ -42,26 +42,26 @@ print('Hello', name)
 <p>Type 'load bounce' then 'run' to load and run this simple demo graphics program:</p>
 
 <pre>
--- bounce (demo)
-r = 4
+-- hello (demo)
+write('What is your name? ')
+name = read()
+print('Hello', name)
+`;
+
+const demoBounce = `-- bounce (demo)
+r,d = 4,8
 x,y = 96,64
 dx,dy = 2,1
 
 function update()
   x,y = x+dx,y+dy
-  if x <= r or 192-r <= x then
-    dx = -dx
-    x = x+dx;
-  end
-  if y <= r or 128-r <= y then
-    dy = -dy
-    y = y+dy
-  end
+  if x < d or 192-d < x then dx = -dx end
+  if y < d or 128-d < y then dy = -dy end
 end
 
 function draw()
   clear(5)
-  rect(x-4, y-4, 8, 8, 11)
+  rect(x-r, y-r, d, d, 11)
 end
 </pre>
 
@@ -70,6 +70,16 @@ end
 <p>Type 'help' for more commands.</p>
 
 <h1>Changelog</h1>
+
+<h2>2018-03-15</h2>
+
+<pre>
+- start map editor
+- rewrite rect syscall
+- add syscalls: mset, mget, map
+- convert from onMouseWheel to onWheel
+- tweak bounce demo
+</pre>
 
 <h2>2018-03-12</h2>
 

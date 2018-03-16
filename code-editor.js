@@ -198,10 +198,10 @@ module.exports = class CodeEditor {
     const cCursor = this.cursor[1];
     
     // Menu bar
-    this.sys.grect(0, 0, 192, 7, 11);
+    this.sys.rect(0, 0, 192, 7, 11);
 
     // Status bar
-    this.sys.grect(0, 121, 192, 7, 11);
+    this.sys.rect(0, 121, 192, 7, 11);
     this.sys.text(`LN ${1+rCursor}  COL ${1+cCursor}`, 0, 121, 3);
     
     // Text area
@@ -219,7 +219,7 @@ module.exports = class CodeEditor {
     const lineCount = this.buffer.getLineCount();
     for (var y = 8, r = this.scroll[0]; y < 120; y+=7, ++r) {
       if (r == lineCount) {
-        this.sys.grect(0, y, 190, 120-y, emptyColor); // below last line
+        this.sys.rect(0, y, 190, 120-y, emptyColor); // below last line
         break;
       }
       const line = this.buffer.getLine(r);
@@ -228,7 +228,7 @@ module.exports = class CodeEditor {
         var ch;
         if (charCount < c) {
           // Right of last character
-          this.sys.grect(x, y, 190-x, 7, emptyColor); // right of last character
+          this.sys.rect(x, y, 190-x, 7, emptyColor); // right of last character
           break;
         } else if (c == charCount) {
           ch = ' ';
@@ -251,9 +251,9 @@ module.exports = class CodeEditor {
     }
     
     // Extra areas
-    this.sys.grect(0, 7, 192, 1, emptyColor);
-    this.sys.grect(190, 8, 2, 112, emptyColor);
-    this.sys.grect(0, 120, 192, 1, emptyColor);
+    this.sys.rect(0, 7, 192, 1, emptyColor);
+    this.sys.rect(190, 8, 2, 112, emptyColor);
+    this.sys.rect(0, 120, 192, 1, emptyColor);
   }
 
   onKeyDown(e) {

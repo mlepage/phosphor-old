@@ -178,6 +178,18 @@ function screenScale(scale) {
   this.onDraw();
 }
 
+function wheel(e) {
+  e.preventDefault();
+  // TODO reuse object for event
+  const rect = e.target.getBoundingClientRect();
+  this.onWheel({
+    x: round((e.clientX - rect.left) / this.bsp_scale),
+    y: round((e.clientY - rect.top) / this.bsp_scale),
+    deltaX: e.deltaX / this.bsp_scale,
+    deltaY: e.deltaY / this.bsp_scale,
+  });
+}
+
 module.exports = {
 
   newMicro() {
@@ -277,7 +289,7 @@ module.exports = {
     canvas.addEventListener('mousedown', mouseDown.bind(micro));
     canvas.addEventListener('mousemove', mouseMove.bind(micro));
     canvas.addEventListener('mouseup', mouseUp.bind(micro));
-    canvas.addEventListener('mousewheel', micro.onMouseWheel.bind(micro));
+    canvas.addEventListener('wheel', wheel.bind(micro));
     
     return micro;
   }

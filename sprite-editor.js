@@ -38,30 +38,30 @@ module.exports = class SpriteEditor {
   main() {
     const sys = this.sys;
     
-    sys.memwrite(0x8000, customChar);
-    
     var color = 15; // paint color
     var sprite = 0; // index of selected sprite
     var sheetx = 0; // sheet scroll x
     var sheety = 0; // sheet scroll y
     
+    var bg = 3;
+    
     this.ui = new Ui([
       { // bg
         x: 0, y: 0, w: 192, h: 128,
         onDraw() {
-          sys.gclear(3);
-          sys.grect(0, 0, 192, 8, 11);
-          sys.grect(0, 120, 192, 8, 11);
-          sys.text('sprite '+sprite, 0, this.h-8, 5)
+          sys.clear(bg);
+          sys.rect(0, 0, 192, 8, 11);
+          sys.rect(0, 120, 192, 8, 11);
+          sys.text('sprite '+sprite, 0, this.h-8, 5);
         },
       },
       { // sprite
         x: 13, y: 16, w: 96, h: 96,
         onDraw() {
-          sys.grecto(this.x-1, this.y-1, this.w+2, this.h+2, 0);
+          sys.rect(this.x-1, this.y-1, this.w+2, this.h+2, undefined, 0);
           for (var y = 0; y < 8; ++y)
             for (var x = 0; x < 8; ++x)
-              sys.grect(this.x+x*12, this.y+y*12, 12, 12, sys.sget(sprite, x, y));
+              sys.rect(this.x+x*12, this.y+y*12, 12, 12, sys.sget(sprite, x, y));
         },
         onMouseDown(e) {
           sys.sset(sprite, floor(e.x/12), floor(e.y/12), color);
@@ -70,12 +70,12 @@ module.exports = class SpriteEditor {
       { // sheet
         x: 120, y: 48, w: 64, h: 64,
         onDraw() {
-          sys.grecto(this.x-1, this.y-1, this.w+2, this.h+2, 0);
+          sys.rect(this.x-1, this.y-1, this.w+2, this.h+2, undefined, 0);
           for (var y = 0; y < 8; ++y)
             for (var x = 0; x < 8; ++x)
               sys.spr(((sheety+y)<<4)+(sheetx+x), this.x+(x<<3), this.y+(y<<3));
           const sel = sprite & ~136;
-          sys.grecto(this.x+((sel&0xf)<<3)-1, this.y+((sel&0xf0)>>1)-1, 10, 10, 15);
+          sys.rect(this.x+((sel&0xf)<<3)-1, this.y+((sel&0xf0)>>1)-1, 10, 10, undefined, 15);
         },
         onMouseDown(e) {
           sprite = ((sheety+(e.y>>3))<<4)+(sheetx+(e.x>>3));
@@ -85,60 +85,15 @@ module.exports = class SpriteEditor {
       { // palette
         x: 120, y: 16, w: 64, h: 16,
         onDraw() {
-          sys.grecto(this.x-1, this.y-1, this.w+2, this.h+2, 0);
+          sys.rect(this.x-1, this.y-1, this.w+2, this.h+2, undefined, 0);
           for (var c = 0; c < 16; ++c)
-            sys.grect(this.x+((c&0x7)<<3), this.y+(c&0x8), 8, 8, c);
-          sys.grecto(this.x+((color&0x7)<<3)-1, this.y+(color&0x8)-1, 10, 10, 15);
+            sys.rect(this.x+((c&0x7)<<3), this.y+(c&0x8), 8, 8, c);
+          sys.rect(this.x+((color&0x7)<<3)-1, this.y+(color&0x8)-1, 10, 10, undefined, 15);
           if (color == 15)
-            sys.grecto(this.x+((color&0x7)<<3), this.y+(color&0x8), 8, 8, 3);
+            sys.rect(this.x+((color&0x7)<<3), this.y+(color&0x8), 8, 8, undefined, 3);
         },
         onMouseDown(e) {
           color = (e.y&0x8)+(e.x>>3);
-        },
-      },
-      { // menu button (code)
-        x:152, y: 0, w: 8, h: 8,
-        onDraw() {
-          sys.char(1, this.x, this.y, 5);
-        },
-        onMouseDown() {
-          sys.vc(1);
-        },
-      },
-      { // menu button (sprite)
-        x:160, y: 0, w: 8, h: 8,
-        onDraw() {
-          sys.char(2, this.x, this.y, 15);
-        },
-        onMouseDown() {
-          sys.vc(2);
-        },
-      },
-      { // menu button (map)
-        x:168, y: 0, w: 8, h: 8,
-        onDraw() {
-          sys.char(3, this.x, this.y, 5);
-        },
-        onMouseDown() {
-          sys.vc(3);
-        },
-      },
-      { // menu button (sound)
-        x:176, y: 0, w: 8, h: 8,
-        onDraw() {
-          sys.char(4, this.x, this.y, 5);
-        },
-        onMouseDown() {
-          sys.vc(4);
-        },
-      },
-      { // menu button (music)
-        x:184, y: 0, w: 8, h: 8,
-        onDraw() {
-          sys.char(5, this.x, this.y, 5);
-        },
-        onMouseDown() {
-          sys.vc(5);
         },
       },
       { // tool button (pen)
@@ -176,17 +131,26 @@ module.exports = class SpriteEditor {
         onDraw() {
           sys.char(13, this.x, this.y, 7);
         },
+        onMouseDown() {
+          bg = bg != 3 ? 3 : 7;
+        },
       },
       { // tool button
         x:2, y: 90, w: 8, h: 8,
         onDraw() {
           sys.char(14, this.x, this.y, 7);
         },
+        onMouseDown() {
+          bg = (bg+15)%16;
+        },
       },
       { // tool button
         x:2, y: 102, w: 8, h: 8,
         onDraw() {
           sys.char(15, this.x, this.y, 7);
+        },
+        onMouseDown() {
+          bg = (bg+1)%16;
         },
       },
       { // sheet scroll button (left)
@@ -237,7 +201,7 @@ module.exports = class SpriteEditor {
       { // temp button (load chars)
         x:16, y: 128-16, w: 8, h: 8,
         onDraw() {
-          sys.gtext('LC', this.x, this.y+1, 7);
+          sys.text('LC', this.x, this.y+1, 7);
         },
         onMouseDown() {
           // TEMP for working on chars
@@ -251,7 +215,7 @@ module.exports = class SpriteEditor {
       { // temp button (save chars)
         x:32, y: 128-16, w: 8, h: 8,
         onDraw() {
-          sys.gtext('SC', this.x, this.y+1, 7);
+          sys.text('SC', this.x, this.y+1, 7);
         },
         onMouseDown() {
           // TEMP for working on chars
@@ -265,7 +229,7 @@ module.exports = class SpriteEditor {
       { // temp button (load ui)
         x:64, y: 128-16, w: 8, h: 8,
         onDraw() {
-          sys.gtext('LU', this.x, this.y+1, 7);
+          sys.text('LU', this.x, this.y+1, 7);
         },
         onMouseDown() {
           // TEMP for working on ui sprites
@@ -277,7 +241,7 @@ module.exports = class SpriteEditor {
       { // temp button (save ui)
         x:80, y: 128-16, w: 8, h: 8,
         onDraw() {
-          sys.gtext('SU', this.x, this.y+1, 7);
+          sys.text('SU', this.x, this.y+1, 7);
         },
         onMouseDown() {
           // TEMP for working on ui sprites
@@ -287,12 +251,58 @@ module.exports = class SpriteEditor {
         },
       },
       */
+      { // menu button (code)
+        x:152, y: 0, w: 8, h: 8,
+        onDraw() {
+          sys.char(1, this.x, this.y, 5);
+        },
+        onMouseDown() {
+          sys.vc(1);
+        },
+      },
+      { // menu button (sprite)
+        x:160, y: 0, w: 8, h: 8,
+        onDraw() {
+          sys.char(2, this.x, this.y, 15);
+        },
+        onMouseDown() {
+          sys.vc(2);
+        },
+      },
+      { // menu button (map)
+        x:168, y: 0, w: 8, h: 8,
+        onDraw() {
+          sys.char(3, this.x, this.y, 5);
+        },
+        onMouseDown() {
+          sys.vc(3);
+        },
+      },
+      { // menu button (sound)
+        x:176, y: 0, w: 8, h: 8,
+        onDraw() {
+          sys.char(4, this.x, this.y, 5);
+        },
+        onMouseDown() {
+          sys.vc(4);
+        },
+      },
+      { // menu button (music)
+        x:184, y: 0, w: 8, h: 8,
+        onDraw() {
+          sys.char(5, this.x, this.y, 5);
+        },
+        onMouseDown() {
+          sys.vc(5);
+        },
+      },
     ], this);
   }
 
   // ---------------------------------------------------------------------------
 
   onResume() {
+    this.sys.memwrite(0x8000, customChar);
   }
 
   onSuspend() {

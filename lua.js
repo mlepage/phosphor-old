@@ -17,16 +17,6 @@ do
     sys_clear(nil, ...)
   end
   
-  local sys_gclear = js.global.__sys_gclear
-  function gclear(...)
-    sys_gclear(nil, ...)
-  end
-  
-  local sys_grect = js.global.__sys_grect
-  function grect(...)
-    sys_grect(nil, ...)
-  end
-  
   local sys_key = js.global.__sys_key
   function key(...)
     return sys_key(nil, ...)
@@ -54,7 +44,22 @@ do
   --function pset(...)
   --  sys_pset(nil, ...)
   --end
-  
+
+  local sys_map = js.global.__sys_map 
+  function map(...)
+    sys_map(nil, ...)
+  end
+
+  local sys_mget = js.global.__sys_mget
+  function mget(...)
+    sys_mget(nil, ...)
+  end
+
+  local sys_mset = js.global.__sys_mset
+  function mset(...)
+    sys_mset(nil, ...)
+  end
+ 
   function read(...)
     yield()
     return js.global.__lua_read
@@ -62,7 +67,7 @@ do
   
   local sys_rect = js.global.__sys_rect
   function rect(...)
-    sys_grect(nil, ...)
+    sys_rect(nil, ...)
   end
   
   local sys_sget = js.global.__sys_sget
@@ -89,26 +94,28 @@ module.exports = class Lua {
 
   async main(...args) {
     this.L = new luavm.Lua.State();
-    window.__sys_clear = this.sys.gclear.bind(this.sys);
-    window.__sys_gclear = this.sys.gclear.bind(this.sys);
-    window.__sys_grect = this.sys.grect.bind(this.sys);
+    window.__sys_clear = this.sys.clear.bind(this.sys);
     window.__sys_key = this.sys.key.bind(this.sys);
     //window.__sys_pal = this.sys.pal.bind(this.sys);
     //window.__sys_pget = this.sys.pget.bind(this.sys);
     //window.__sys_pset = this.sys.pset.bind(this.sys);
-    window.__sys_rect = this.sys.grect.bind(this.sys);
+    window.__sys_map = this.sys.map.bind(this.sys);
+    window.__sys_mget = this.sys.mget.bind(this.sys);
+    window.__sys_mset = this.sys.mset.bind(this.sys);
+    window.__sys_rect = this.sys.rect.bind(this.sys);
     window.__sys_sget = this.sys.sget.bind(this.sys);
     window.__sys_spr = this.sys.spr.bind(this.sys);
     window.__sys_sset = this.sys.sset.bind(this.sys);
     window.__sys_write = this.sys.write.bind(this.sys);
     this.L.execute(init);
     delete window.__sys_clear;
-    delete window.__sys_gclear;
-    delete window.__sys_grect;
     delete window.__sys_key;
     //delete window.__sys_pal;
     //delete window.__sys_pget;
     //delete window.__sys_pset;
+    delete window.__sys_map;
+    delete window.__sys_mget;
+    delete window.__sys_mset;
     delete window.__sys_rect;
     delete window.__sys_sget;
     delete window.__sys_spr;

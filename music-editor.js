@@ -14,9 +14,9 @@ module.exports = class MusicEditor {
       { // bg
         x: 0, y: 0, w: 192, h: 128,
         onDraw() {
-          sys.gclear(3);
-          sys.grect(0, 0, 192, 8, 11);
-          sys.grect(0, 120, 192, 8, 11);
+          sys.clear(3);
+          sys.rect(0, 0, 192, 8, 11);
+          sys.rect(0, 120, 192, 8, 11);
         },
       },
       { // menu button (code)

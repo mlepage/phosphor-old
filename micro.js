@@ -73,25 +73,19 @@ print('Hello', name)
 `;
 
 const demoBounce = `-- bounce (demo)
-r = 4
+r,d = 4,8
 x,y = 96,64
 dx,dy = 2,1
 
 function update()
   x,y = x+dx,y+dy
-  if x <= r or 192-r <= x then
-    dx = -dx
-    x = x+dx;
-  end
-  if y <= r or 128-r <= y then
-    dy = -dy
-    y = y+dy
-  end
+  if x < d or 192-d < x then dx = -dx end
+  if y < d or 128-d < y then dy = -dy end
 end
 
 function draw()
   clear(5)
-  rect(x-4, y-4, 8, 8, 11)
+  rect(x-r, y-r, d, d, 11)
 end
 `;
 
@@ -438,49 +432,19 @@ module.exports = class Micro {
     }
   }
 
+  syscall_clear(c) {
+    this._os.mem.fill((c<<4)|c, 0, 0x3000);
+  }
+
   syscall_export() {
     systrace('export', this, arguments);
     const json = JSON.stringify(filesystem);
     this._os.bspExport('filesystem.json', json);
   }
 
-  syscall_gclear(c) {
-    systrace('gclear', this, arguments);
-    this._os.mem.fill((c<<4)|c, 0, 0x3000);
-  }
-
   syscall_gpixel(x, y, c) {
     systrace('gpixel', this, arguments);
     pset(this._os.mem, x, y, c);
-  }
-
-  syscall_grect(x, y, w, h, c) {
-    systrace('grect', this, arguments);
-    const mem = this._os.mem;
-    const x1 = x, x2 = x+w-1;
-    const y2 = y+h-1;
-    for (; y <= y2; ++y) {
-      for (x = x1; x <= x2; ++x) {
-        pset(mem, x, y, c);
-      }
-    }
-  }
-
-  syscall_grecto(x, y, w, h, c) {
-    systrace('grecto', this, arguments);
-    const mem = this._os.mem;
-    const x1 = x, x2 = x+w-1;
-    const y2 = y+h-1;
-    for (x = x1; x <= x2; ++x) {
-      pset(mem, x, y, c);
-    }
-    for (++y; y < y2; ++y) {
-      pset(mem, x1, y, c);
-      pset(mem, x2, y, c);
-    }
-    for (x = x1; x <= x2; ++x) {
-      pset(mem, x, y, c);
-    }
   }
 
   syscall_import() {
@@ -534,6 +498,17 @@ module.exports = class Micro {
     return list;
   }
 
+  syscall_map(sx, sy, x, y, w, h) {
+    const x_ = x, y_ = y;
+    for (y = 0; y < h; ++y)
+      for (x = 0; x < w; ++x)
+        this.spr(this.mget(x_+x, y_+y), sx+(x<<3), sy+(y<<3));
+  }
+
+  syscall_mget(x, y) {
+    return this._os.mem[MRAM+y*96+x];
+  }
+
   // Return undefined if no arg
   // Return undefined if directory (or file) already exists
   // Return resolved name if successful
@@ -557,6 +532,10 @@ module.exports = class Micro {
       filesystem[fskey(walk)] = true;
     });
     return name;
+  }
+
+  syscall_mset(x, y, n) {
+    this._os.mem[MRAM+y*96+x] = n;
   }
 
   // Sounds like open should create new file descriptor
@@ -597,6 +576,49 @@ module.exports = class Micro {
   syscall_reboot() {
     systrace('reboot', this, arguments);
     this._os.reboot();
+  }
+
+  syscall_rect(x, y, w, h, c1, c2) {
+    if (w <= 0 || h <= 0)
+      return;
+    const os = this._os, mem = os.mem, pal = os.pal;
+    if (c1 != undefined || c2 != undefined) {
+      os.c1 = c1;
+      os.c2 = c2;
+    } else {
+      c1 = os.c1;
+      c2 = os.c2;
+    }
+    if (c1 != undefined)
+      c1 = pal[c1];
+    if (c2 != undefined)
+      c2 = pal[c2];
+    const x1 = x, x2 = x+w-1, y2 = y+h-1;
+    if (c1 != undefined && c2 != undefined) {
+      for (x = x1; x <= x2; ++x) {
+        pset(mem, x, y, c2);
+        pset(mem, x, y2, c2);
+      }
+      for (++y; y < y2; ++y) {
+        pset(mem, x1, y, c2);
+        for (x = x1; ++x < x2;)
+          pset(mem, x, y, c1);
+        pset(mem, x2, y, c2);
+      }
+    } else if (c1 != undefined) {
+      for (; y <= y2; ++y)
+        for (x = x1; x <= x2; ++x)
+          pset(mem, x, y, c1);
+    } else if (c2 != undefined) {
+      for (x = x1; x <= x2; ++x) {
+        pset(mem, x, y, c2);
+        pset(mem, x, y2, c2);
+      }
+      for (++y; y < y2; ++y) {
+        pset(mem, x1, y, c2);
+        pset(mem, x2, y, c2);
+      }
+    }
   }
 
   // Return undefined if no arg
@@ -865,6 +887,8 @@ module.exports = class Micro {
   }
 
   onMouseMove(e) {
+    // TODO handle too much redraw if not dragging
+    return;
     if (this.vc.onMouseMove) this.vc.onMouseMove(e);
     //e.preventDefault();
     this.onDraw();
@@ -876,9 +900,9 @@ module.exports = class Micro {
     this.onDraw();
   }
 
-  onMouseWheel(e) {
+  onWheel(e) {
     if (this.vc.onMouseWheel) this.vc.onMouseWheel(e);
-    e.preventDefault();
+    //e.preventDefault();
     this.onDraw();
   }
 

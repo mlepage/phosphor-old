@@ -198,9 +198,9 @@ module.exports = class Terminal {
   // ---------------------------------------------------------------------------
 
   onDraw() {
-    this.sys.grect(0, 0, 192, 1, this.bg);
-    this.sys.grect(190, 1, 2, 126, this.bg);
-    this.sys.grect(0, 127, 192, 1, this.bg);
+    this.sys.rect(0, 0, 192, 1, this.bg);
+    this.sys.rect(190, 1, 2, 126, this.bg);
+    this.sys.rect(0, 127, 192, 1, this.bg);
     // TODO optimize this like the code-editor
     const lineCount = this.L.length;
     for (var r = 0, l = this.s; r < this.h; ++r, ++l) {
