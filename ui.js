@@ -11,10 +11,15 @@ module.exports = class Ui {
 
   constructor(list, target) {
     this.list = list;
+    for (var i = 0; i < list.length; ++i)
+      if (list[i].name)
+        this[list[i].name] = list[i];
     if (target) {
       target.onDraw = this.onDraw.bind(this);
       target.onMouseDown = this.onMouseDown.bind(this);
-      target.onMouseWheel = this.onMouseWheel.bind(this);
+      target.onMouseMove = this.onMouseMove.bind(this);
+      target.onMouseUp = this.onMouseUp.bind(this);
+      target.onMouseWheel = this.onWheel.bind(this);
     }
   }
 
@@ -44,7 +49,40 @@ module.exports = class Ui {
     }
   }
 
-  onMouseWheel(e) {
+  onMouseMove(e) {
+    const ex = e.x, ey = e.y;
+    const list = this.list;
+    for (var i = 0; i < list.length; ++i) {
+      const item = list[i];
+      const f = item.onMouseMove;
+      if (!f || !hit(ex, ey, item.x, item.y, item.w, item.h))
+        continue;
+      if (!this.eMouseMove)
+        this.eMouseMove = {};
+      this.eMouseMove.x = e.x - item.x;
+      this.eMouseMove.y = e.y - item.y;
+      f.call(item, this.eMouseMove);
+      break;
+    }
+  }
+
+  onMouseUp(e) {
+    const ex = e.x, ey = e.y;
+    const list = this.list;
+    for (var i = 0; i < list.length; ++i) {
+      const item = list[i];
+      const f = item.onMouseUp;
+      if (!f || !hit(ex, ey, item.x, item.y, item.w, item.h))
+        continue;
+      // TODO should make new event object
+      e.x -= item.x;
+      e.y -= item.y;
+      f.call(item, e);
+      break;
+    }
+  }
+
+  onWheel(e) {
     const ex = e.x, ey = e.y;
     const list = this.list;
     for (var i = 0; i < list.length; ++i) {

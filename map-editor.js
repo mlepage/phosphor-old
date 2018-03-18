@@ -5,157 +5,282 @@
 
 const Ui = require('./ui.js');
 
+const floor = Math.floor, ceil = Math.ceil;
 const min = Math.min, max = Math.max;
-
-// TODO scrub out all but the first 8 chars
-const customChar = '000000000000000000c644444444c60000c3e7a5e766c3000066e74242e76600000141c5c7e7e70000020202c3e3c10000000000000000000000000000000000020783c1e050300000010204efd7931181c3c3c38181ffff414545d3e300c100000000000000000000c12222af27020077b6777777b67700f7f7d522d5f7f700000080c0e0c08000000080818381800000000183c700000000000000c7830100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000';
 
 module.exports = class MapEditor {
 
   main() {
     const sys = this.sys;
     
-    var sprite = 0; // index of selected sprite
-    var mapx = 0; // map scroll x
-    var mapy = 0; // map scroll y
-    var sheetx = 0; // sheet scroll x
-    var sheety = 0; // sheet scroll y
+    var mapX = 0; // map origin (cells)
+    var mapY = 0; // map origin (cells)
+    var mapW = 14; // map size (cells)
+    var mapH = 14; // map size (cells)
+    var zoom = 3; // 0/1/2/3 zoom is 1/2/48 px tiles
     
-    this.ui = new Ui([
+    var sheetX = 0; // sheet origin (cells)
+    var sheetY = 0; // sheet origin (cells)
+    var sheetW = 8; // sheet size (cells)
+    var sheetH = 14; // sheet size (cells)
+    var sheetWrap = true; // sheet wrap or not
+    
+    var sprite = 0; // index of selected sprite (0-255)
+    
+    var mouseDown = false;
+    
+    var ui = new Ui([
       { // bg
         x: 0, y: 0, w: 192, h: 128,
         onDraw() {
           sys.clear(3);
-          sys.rect(0, 0, 192, 8, 11);
-          sys.rect(0, 120, 192, 8, 11);
+          sys.rect(0, 0, 192, 7, 11);
+          sys.rect(0, 121, 192, 7, 11);
+          var str = mapX + ',' + mapY;
+          sys.text(str, 0, 121, 5);
+          str = ''+sprite;
+          sys.text(str, 191-5*str.length, 121, 5);
         },
       },
       { // map
-        x: 12, y: 8, w: 112, h: 112,
+        x: 10, y: 8, w: 112, h: 112, name: 'map',
         onDraw() {
-          sys.map(this.x, this.y, mapx, mapy, 14, 14);
-          sys.rect(this.x, this.y, this.w, this.h, null, 0);
+          sys.rect(this.x-1, this.y-1, this.w+2, this.h+2, null, 0);
+          if (zoom == 3)
+            sys.map(this.x, this.y, mapX, mapY, mapW, mapH);
+          else {
+            const z = 1<<zoom;
+            const w = min(mapW<<(3-zoom), 96);
+            const h = min(mapH<<(3-zoom), 96);
+            for (var y = 0; y < h; ++y)
+              for (var x = 0; x < w; ++x)
+                sys.rect(this.x+(x<<zoom), this.y+(y<<zoom), z, z, sys.mget(mapX+x, mapY+y)&0xf);
+          }
         },
         onMouseDown(e) {
-          sys.mset(mapx+(e.x>>3), mapy+(e.y>>3), sprite);
+          mouseDown = true;
+          sys.mset(mapX+min(e.x>>zoom, 95), mapY+min(e.y>>zoom, 95), sprite);
+        },
+        onMouseMove(e) {
+          if (mouseDown)
+            sys.mset(mapX+min(e.x>>zoom, 95), mapY+min(e.y>>zoom, 95), sprite);
+        },
+        onMouseUp(e) {
+          mouseDown = false;
         },
         onWheel(e) {
           if (e.deltaY <= -1) {
-            mapy = max(mapy-1, 0);
+            mapY = max(mapY-(1<<(3-zoom)), 0);
           } else if (e.deltaY >= 1) {
-            mapy = min(mapy+1, 82);
+            mapY = min(mapY+(1<<(3-zoom)), max(96-(mapH<<(3-zoom)), 0));
           }
           if (e.deltaX <= -1) {
-            mapx = max(mapx-1, 0);
+            mapX = max(mapX-(1<<(3-zoom)), 0);
           } else if (e.deltaX >= 1) {
-            mapx = min(mapx+1, 82);
+            mapX = min(mapX+(1<<(3-zoom)), max(96-(mapW<<(3-zoom)), 0));
           }
         },
       },
       { // sheet
-        x: 128, y: 8, w: 64, h: 112,
+        x: 127, y: 8, w: 64, h: 112, name: 'sheet',
         onDraw() {
-          for (var y = 0; y < 14; ++y)
-            for (var x = 0; x < 8; ++x)
-              sys.spr(((sheety+y)<<4)+(sheetx+x), this.x+(x<<3), this.y+(y<<3));
-          // TODO fix this drawing
-          const sel = sprite & ~136;
-          sys.rect(this.x+((sel&0xf)<<3)-1, this.y+((sel&0xf0)>>1)-1, 10, 10, undefined, 15);
+          // sheet outline
+          sys.rect(this.x-1, this.y-1, this.w+2, this.h+2, null, 0);
+          // sprites
+          var n = sheetY*sheetW+sheetX;
+          for (var y = 0; y < sheetH; ++y)
+            for (var x = 0; x < sheetW; ++x, ++n)
+              sys.spr(n, this.x+(x<<3), this.y+(y<<3));
+          // empty sprites
+          if (n > 256)
+            sys.rect(this.x+this.w-((n-256)<<3), this.y+this.h-8, (n-256)<<3, 8, 0)
+          // selected sprite outline
+          n = sprite-(sheetY*sheetW+sheetX);
+          if (0 <= n && n < sheetH*sheetW) {
+            const y = floor(n/sheetW);
+            const x = n%sheetW;
+            sys.rect(this.x+(x<<3)-1, this.y+(y<<3)-1, 10, 10, null, 15);
+          }
         },
         onMouseDown(e) {
-          sprite = ((sheety+(e.y>>3))<<4)+(sheetx+(e.x>>3));
-          console.log('selected', sprite);
+          sprite = min((sheetY+(e.y>>3))*sheetW+sheetX+(e.x>>3), 255);
         },
         onWheel(e) {
           if (e.deltaY <= -1) {
-            sheety = max(sheety-1, 0);
+            sheetY = max(sheetY-1, 0);
           } else if (e.deltaY >= 1) {
-            sheety = min(sheety+1, 2);
+            sheetY = min(sheetY+1, ceil(256/sheetW)-sheetH);
           }
-          if (e.deltaX <= -1) {
-            sheetx = max(sheetx-1, 0);
-          } else if (e.deltaX >= 1) {
-            sheetx = min(sheetx+1, 8);
-          }
+          //if (e.deltaX <= -1) {
+          //  sheetx = max(sheetx-1, 0);
+          //} else if (e.deltaX >= 1) {
+          //  sheetx = min(sheetx+1, 8);
+          //}
         },
       },
-      { // tool button (pen)
-        x:2, y: 18, w: 8, h: 8,
+      { // tool button (draw)
+        x: 0, y: 16, w: 10, h: 12,
         onDraw() {
-          sys.char(8, this.x, this.y, 10);
+          sys.char(16, 1+this.x, 2+this.y, 10);
         },
         onMouseDown() {
-          --mapx;
-          console.log('map', mapx, mapy);
         },
       },
-      { // tool button
-        x:2, y: 30, w: 8, h: 8,
+      { // tool button (fill)
+        x: 0, y: 28, w: 10, h: 12,
         onDraw() {
-          sys.char(9, this.x, this.y, 7);
+          sys.char(17, 1+this.x, 2+this.y, 7);
         },
         onMouseDown() {
-          ++mapx;
-          console.log('map', mapx, mapy);
         },
       },
-      { // tool button
-        x:2, y: 42, w: 8, h: 8,
+      { // tool button (select)
+        x: 0, y: 40, w: 10, h: 12,
         onDraw() {
-          sys.char(10, this.x, this.y, 7);
+          sys.char(19, 1+this.x, 2+this.y, 7);
         },
         onMouseDown() {
-          --mapy;
-          console.log('map', mapx, mapy);
         },
       },
-      { // tool button
-        x:2, y: 54, w: 8, h: 8,
+      { // tool button (pan)
+        x: 0, y: 52, w: 10, h: 12,
         onDraw() {
-          sys.char(11, this.x, this.y, 7);
-        },
-        onMouseDown() {
-          ++mapy;
-          console.log('map', mapx, mapy);
-        },
-      },
-      { // tool button
-        x:2, y: 66, w: 8, h: 8,
-        onDraw() {
-          sys.char(12, this.x, this.y, 7);
+          sys.char(20, 1+this.x, 2+this.y, 7);
         },
         onMouseDown() {
         },
       },
       { // tool button
-        x:2, y: 78, w: 8, h: 8,
+        x: 0, y: 64, w: 10, h: 12,
         onDraw() {
-          sys.char(13, this.x, this.y, 7);
+          //sys.char(0, 1+this.x, 2+this.y, 7);
         },
         onMouseDown() {
-          bg = bg != 3 ? 3 : 7;
         },
       },
-      { // tool button
-        x:2, y: 90, w: 8, h: 8,
+      { // tool button (zoom out)
+        x: 0, y: 76, w: 10, h: 12,
         onDraw() {
-          sys.char(14, this.x, this.y, 7);
+          sys.char(21, 1+this.x, 2+this.y, 7);
         },
         onMouseDown() {
-          bg = (bg+15)%16;
+          zoom = max(--zoom, 0);
+          mapX = min(mapX, max(96-(mapW<<(3-zoom)), 0));
+          mapY = min(mapY, max(96-(mapH<<(3-zoom)), 0));
         },
       },
-      { // tool button
-        x:2, y: 102, w: 8, h: 8,
+      { // tool button (zoom in)
+        x: 0, y: 88, w: 10, h: 12,
         onDraw() {
-          sys.char(15, this.x, this.y, 7);
+          sys.char(22, 1+this.x, 2+this.y, 7);
         },
         onMouseDown() {
-          bg = (bg+1)%16;
+          zoom = min(++zoom, 3);
+        },
+      },
+      { // tool button (grid)
+        x: 0, y: 100, w: 10, h: 12,
+        onDraw() {
+          sys.char(23, 1+this.x, 2+this.y, 7);
+        },
+        onMouseDown() {
+        },
+      },
+      { // splitter button (left)
+        x: 122, y: 40, w: 5, h: 12, name: 'split_left',
+        onDraw() {
+          sys.char(29, this.x, this.y, 7);
+        },
+        onMouseDown() {
+          if (sheetW == 16)
+            return;
+          sheetW++;
+          mapW = 22-sheetW;
+          ui.map.w = mapW<<3;
+          ui.sheet.w = sheetW<<3;
+          ui.sheet.x = 191-ui.sheet.w;
+          ui.split_left.x = ui.sheet.x-5;
+          ui.split_layout.x = ui.sheet.x-5;
+          ui.split_right.x = ui.sheet.x-5;
+          sheetY = min(sheetY, ceil(256/sheetW)-sheetH);
+        },
+      },
+      { // splitter button (layout)
+        x: 122, y: 58, w: 5, h: 12, name: 'split_layout',
+        onDraw() {
+          sys.char(30, this.x, this.y, 7);
+        },
+        onMouseDown() {
+        },
+      },
+      { // splitter button (right)
+        x: 122, y: 76, w: 5, h: 12, name: 'split_right',
+        onDraw() {
+          sys.char(31, this.x, this.y, 7);
+        },
+        onMouseDown() {
+          if (sheetW == 1)
+            return;
+          sheetW--;
+          mapW = 22-sheetW;
+          ui.map.w = mapW<<3;
+          ui.sheet.w = sheetW<<3;
+          ui.sheet.x = 191-ui.sheet.w;
+          ui.split_left.x = ui.sheet.x-5;
+          ui.split_layout.x = ui.sheet.x-5;
+          ui.split_right.x = ui.sheet.x-5;
+        },
+      },
+      { // menu button (menu)
+        x: 0, y: 0, w: 8, h: 9,
+        onDraw() {
+          sys.char(6, this.x, this.y, 5);
+        },
+        onMouseDown() {
+        },
+      },
+      { // menu button (undo)
+        x: 16, y: 0, w: 8, h: 9,
+        onDraw() {
+          sys.char(7, this.x, this.y, 5);
+        },
+        onMouseDown() {
+        },
+      },
+      { // menu button (redo)
+        x: 24, y: 0, w: 8, h: 9,
+        onDraw() {
+          sys.char(8, this.x, this.y, 5);
+        },
+        onMouseDown() {
+        },
+      },
+      { // menu button (cut)
+        x: 40, y: 0, w: 8, h: 9,
+        onDraw() {
+          sys.char(9, this.x, this.y, 5);
+        },
+        onMouseDown() {
+        },
+      },
+      { // menu button (copy)
+        x: 48, y: 0, w: 8, h: 9,
+        onDraw() {
+          sys.char(10, this.x, this.y, 5);
+        },
+        onMouseDown() {
+        },
+      },
+      { // menu button (paste)
+        x: 56, y: 0, w: 8, h: 9,
+        onDraw() {
+          sys.char(11, this.x, this.y, 5);
+        },
+        onMouseDown() {
         },
       },
       { // menu button (code)
-        x:152, y: 0, w: 8, h: 8,
+        x: 152, y: 0, w: 8, h: 8,
         onDraw() {
           sys.char(1, this.x, this.y, 5);
         },
@@ -164,7 +289,7 @@ module.exports = class MapEditor {
         },
       },
       { // menu button (sprite)
-        x:160, y: 0, w: 8, h: 8,
+        x: 160, y: 0, w: 8, h: 8,
         onDraw() {
           sys.char(2, this.x, this.y, 5);
         },
@@ -173,7 +298,7 @@ module.exports = class MapEditor {
         },
       },
       { // menu button (map)
-        x:168, y: 0, w: 8, h: 8,
+        x: 168, y: 0, w: 8, h: 8,
         onDraw() {
           sys.char(3, this.x, this.y, 15);
         },
@@ -182,7 +307,7 @@ module.exports = class MapEditor {
         },
       },
       { // menu button (sound)
-        x:176, y: 0, w: 8, h: 8,
+        x: 176, y: 0, w: 8, h: 8,
         onDraw() {
           sys.char(4, this.x, this.y, 5);
         },
@@ -191,7 +316,7 @@ module.exports = class MapEditor {
         },
       },
       { // menu button (music)
-        x:184, y: 0, w: 8, h: 8,
+        x: 184, y: 0, w: 8, h: 8,
         onDraw() {
           sys.char(5, this.x, this.y, 5);
         },
@@ -205,7 +330,13 @@ module.exports = class MapEditor {
   // ---------------------------------------------------------------------------
 
   onResume() {
-    this.sys.memwrite(0x8000, customChar);
+    this.sys.memwrite(0x8000, '0022418041220000006322222263000000c1a2e3e3a2000000636300636300000080c0c2c3e3000000010101c1c1000000c700c700c70000000180c780010000000102c70201000000828201c6c6000000c3c7c4c48700000087c74646c3000000000000000000000000000000000000000000000000000000000000000000000183c7e3d1907000010204efd793110000000000000000005500140014005500414545d7f7e7c300f71414d51414f700f71494d59414f700f755f755f755f70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040604000000000404040400000000040c04000');
+  }
+
+  onSuspend() {
+    // HACK directly access memory and filesystem
+    if (!window.editCharset)
+      this.sys._os.filesystem['mcomputer:mem'] = this.sys.memread(0x3000, 0x5000);
   }
 
 };

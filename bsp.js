@@ -134,7 +134,8 @@ function mouseMove(e) {
   const rect = e.target.getBoundingClientRect();
   this.onMouseMove({
     x: round((e.clientX - rect.left) / this.bsp_scale),
-    y: round((e.clientY - rect.top) / this.bsp_scale)
+    y: round((e.clientY - rect.top) / this.bsp_scale),
+    buttons: e.buttons,
   });
 }
 
@@ -176,6 +177,37 @@ function screenScale(scale) {
   this.bsp_canvas.height = scale*128;
   this.bsp_gl.viewport(0, 0, scale*192, scale*128);
   this.onDraw();
+}
+
+function touchCancel(e) {
+  e.preventDefault();
+}
+
+function touchEnd(e) {
+  e.preventDefault();
+  const rect = e.target.getBoundingClientRect();
+  const e2 = this.bsp_eTouchEnd = this.bsp_eTouchEnd || { buttons: 1 };
+  e2.x = round((e.changedTouches[0].clientX - rect.left) / this.bsp_scale);
+  e2.y = round((e.changedTouches[0].clientY - rect.top) / this.bsp_scale);
+  this.onMouseUp(e2);
+}
+
+function touchMove(e) {
+  e.preventDefault();
+  const rect = e.target.getBoundingClientRect();
+  const e2 = this.bsp_eTouchMove = this.bsp_eTouchMove || { buttons: 1 };
+  e2.x = round((e.touches[0].clientX - rect.left) / this.bsp_scale);
+  e2.y = round((e.touches[0].clientY - rect.top) / this.bsp_scale);
+  this.onMouseMove(e2);
+}
+
+function touchStart(e) {
+  e.preventDefault();
+  const rect = e.target.getBoundingClientRect();
+  const e2 = this.bsp_eTouchStart = this.bsp_eTouchStart || {};
+  e2.x = round((e.touches[0].clientX - rect.left) / this.bsp_scale);
+  e2.y = round((e.touches[0].clientY - rect.top) / this.bsp_scale);
+  this.onMouseDown(e2);
 }
 
 function wheel(e) {
@@ -289,6 +321,10 @@ module.exports = {
     canvas.addEventListener('mousedown', mouseDown.bind(micro));
     canvas.addEventListener('mousemove', mouseMove.bind(micro));
     canvas.addEventListener('mouseup', mouseUp.bind(micro));
+    canvas.addEventListener('touchstart', touchStart.bind(micro));
+    canvas.addEventListener('touchmove', touchMove.bind(micro));
+    canvas.addEventListener('touchend', touchEnd.bind(micro));
+    canvas.addEventListener('touchcancel', touchCancel.bind(micro));
     canvas.addEventListener('wheel', wheel.bind(micro));
     
     return micro;

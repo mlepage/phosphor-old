@@ -7,8 +7,6 @@ const Ui = require('./ui.js');
 
 const floor = Math.floor;
 
-const customChar = '000000000000000000c644444444c60000c3e7a5e766c3000066e74242e76600000141c5c7e7e70000020202c3e3c10000000000000000000000000000000000020783c1e050300000010204efd7931181c3c3c38181ffff414545d3e300c100000000000000000000c12222af27020077b6777777b67700f7f7d522d5f7f700000080c0e0c08000000080818381800000000183c700000000000000c7830100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000';
-
 function sprite2char(sys, n) {
   var a = 0x8000+(n<<3);
   for (var y = 0; y < 8; ++y) {
@@ -43,6 +41,8 @@ module.exports = class SpriteEditor {
     var sheetx = 0; // sheet scroll x
     var sheety = 0; // sheet scroll y
     
+    var mouseDown = false;
+    
     var bg = 3;
     
     this.ui = new Ui([
@@ -52,7 +52,8 @@ module.exports = class SpriteEditor {
           sys.clear(bg);
           sys.rect(0, 0, 192, 8, 11);
           sys.rect(0, 120, 192, 8, 11);
-          sys.text('sprite '+sprite, 0, this.h-8, 5);
+          var str = ''+sprite;
+          sys.text(str, 191-5*str.length, 121, 5);
         },
       },
       { // sprite
@@ -64,7 +65,15 @@ module.exports = class SpriteEditor {
               sys.rect(this.x+x*12, this.y+y*12, 12, 12, sys.sget(sprite, x, y));
         },
         onMouseDown(e) {
+          mouseDown = true;
           sys.sset(sprite, floor(e.x/12), floor(e.y/12), color);
+        },
+        onMouseMove(e) {
+          if (mouseDown)
+            sys.sset(sprite, floor(e.x/12), floor(e.y/12), color);
+        },
+        onMouseUp(e) {
+          mouseDown = false;
         },
       },
       { // sheet
@@ -79,7 +88,6 @@ module.exports = class SpriteEditor {
         },
         onMouseDown(e) {
           sprite = ((sheety+(e.y>>3))<<4)+(sheetx+(e.x>>3));
-          console.log('selected', sprite);
         },
       },
       { // palette
@@ -206,6 +214,7 @@ module.exports = class SpriteEditor {
         onMouseDown() {
           // TEMP for working on chars
           console.log('load: chars --> sheet');
+          window.editCharset = true;
           for (var n = 0; n < 128; ++n)
             char2sprite(sys, n);
           console.log(sys.memread(0x8000, 32*8));
@@ -220,6 +229,7 @@ module.exports = class SpriteEditor {
         onMouseDown() {
           // TEMP for working on chars
           console.log('save: sheet --> chars');
+          window.editCharset = true;
           for (var n = 0; n < 128; ++n)
             sprite2char(sys, n);
           console.log(sys.memread(0x8000, 32*8));
@@ -302,12 +312,13 @@ module.exports = class SpriteEditor {
   // ---------------------------------------------------------------------------
 
   onResume() {
-    this.sys.memwrite(0x8000, customChar);
+    this.sys.memwrite(0x8000, '000000000000000000c644444444c60000c3e7a5e766c3000066e74242e76600000141c5c7e7e70000020202c3e3c10000000000000000000000000000000000020783c1e050300000010204efd7931181c3c3c38181ffff414545d3e300c100000000000000000000c12222af27020077b6777777b67700f7f7d522d5f7f700000080c0e0c08000000080818381800000000183c700000000000000c7830100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000');
   }
 
   onSuspend() {
     // HACK directly access memory and filesystem
-    this.sys._os.filesystem['mcomputer:mem'] = this.sys.memread(0x3000, 0x5000);
+    if (!window.editCharset)
+      this.sys._os.filesystem['mcomputer:mem'] = this.sys.memread(0x3000, 0x5000);
   }
 
 };

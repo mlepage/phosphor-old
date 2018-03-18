@@ -887,8 +887,6 @@ module.exports = class Micro {
   }
 
   onMouseMove(e) {
-    // TODO handle too much redraw if not dragging
-    return;
     if (this.vc.onMouseMove) this.vc.onMouseMove(e);
     //e.preventDefault();
     this.onDraw();
