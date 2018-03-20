@@ -329,9 +329,6 @@ module.exports = class SpriteEditor {
 
   onSuspend() {
     this.sys.save();
-    // HACK directly access memory and filesystem
-    //if (!window.editCharset)
-    //  this.sys._os.filesystem['mcomputer:mem'] = this.sys.memread(0x3000, 0x5000);
   }
 
 };

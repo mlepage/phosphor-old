@@ -400,26 +400,6 @@ module.exports = class CodeEditor {
   onSuspend() {
     window.program_code = this.buffer.getText();
     this.sys.save();
-/*
-    // HACK
-    const text = this.buffer.getText();
-    if (text) {
-      if (!this.file) {
-        this.file = `/untitled`;
-        for (var i = 1; i <= 100; ++i) {
-          if (!this.sys._os.filesystem[`mcomputer:${this.file}`]) {
-            window.loadedFile = this.file;
-            break;
-          }
-          // NOTE will always overwrite untitled-100 if it comes to it
-          this.file = `/untitled-${i}`;
-        }
-      }
-      this.sys._os.filesystem[`mcomputer:${this.file}`] = text;
-    } else if (this.file) {
-      delete this.sys._os.filesystem[`mcomputer:${this.file}`];
-    }
-    */
   }
 
 };

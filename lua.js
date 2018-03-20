@@ -12,6 +12,11 @@ do
   local concat = table.concat
   local yield = coroutine.yield
   
+  local sys_char = js.global.__sys_char
+  function char(...)
+    sys_char(nil, ...)
+  end
+  
   local sys_clear = js.global.__sys_clear
   function clear(...)
     sys_clear(nil, ...)
@@ -45,14 +50,14 @@ do
   --  sys_pset(nil, ...)
   --end
 
-  local sys_map = js.global.__sys_map 
+  local sys_map = js.global.__sys_map
   function map(...)
     sys_map(nil, ...)
   end
 
   local sys_mget = js.global.__sys_mget
   function mget(...)
-    sys_mget(nil, ...)
+    return sys_mget(nil, ...)
   end
 
   local sys_mset = js.global.__sys_mset
@@ -85,6 +90,11 @@ do
     sys_sset(nil, ...)
   end
   
+  local sys_text = js.global.__sys_text
+  function text(...)
+    sys_text(nil, ...)
+  end
+  
   function write(...)
     sys_write(nil, ...)
   end
@@ -94,6 +104,7 @@ module.exports = class Lua {
 
   async main(...args) {
     this.L = new luavm.Lua.State();
+    window.__sys_char = this.sys.char.bind(this.sys);
     window.__sys_clear = this.sys.clear.bind(this.sys);
     window.__sys_key = this.sys.key.bind(this.sys);
     //window.__sys_pal = this.sys.pal.bind(this.sys);
@@ -106,8 +117,10 @@ module.exports = class Lua {
     window.__sys_sget = this.sys.sget.bind(this.sys);
     window.__sys_spr = this.sys.spr.bind(this.sys);
     window.__sys_sset = this.sys.sset.bind(this.sys);
+    window.__sys_text = this.sys.text.bind(this.sys);
     window.__sys_write = this.sys.write.bind(this.sys);
     this.L.execute(init);
+    delete window.__sys_char;
     delete window.__sys_clear;
     delete window.__sys_key;
     //delete window.__sys_pal;
@@ -120,10 +133,11 @@ module.exports = class Lua {
     delete window.__sys_sget;
     delete window.__sys_spr;
     delete window.__sys_sset;
+    delete window.__sys_text;
     delete window.__sys_write;
     
     // HACK to choose code to run
-    var code = this.sys._os.filesystem[`mcomputer:/${args[1]}`];
+    var code = this.sys._os.filesystem[`phosphor:/${args[1]}`];
     if (!code)
       code = window.program_code;
     if (!code)

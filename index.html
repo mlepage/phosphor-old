@@ -9,7 +9,7 @@
 
 <script src='page-bsp.js'></script>
 
-<h1>Simple Computer (Under Construction)</h1>
+<h1>Phosphor Microcomputer (Under Construction)</h1>
 
 <p>A simple browser-based microcomputer, inspired by:</p>
 
@@ -65,11 +65,41 @@ function draw()
 end
 </pre>
 
-<p>Current short-term quirks: Delete a file by loading it, then editing it to be empty. Sprites are currently saved when *exiting* the sprite editor, and are global to all programs.</p>
-
 <p>Type 'help' for more commands.</p>
 
+<p>These graphics syscalls work as expected:</p>
+
+<pre>
+clear(c)
+char(ch, x, y, c1, c2)
+text(str, x, y, c1, c2)
+rect(x, y, w, h, c1, c2)
+spr(n, x, y)
+sset(n, x, y, c)
+sget(n, x, y)
+map(screenx, screeny, x, y, w, h)
+mset(x, y, n)
+mget(x, y)
+</pre>
+
+<p>Input, for printable ASCII keys only (e.g. 'y' or 'n' but not cursor or shift), can be obtained like:</p>
+
+<pre>
+if key('y') then
+  -- y (case sensitive) pressed this frame
+end
+</pre>
+
+<p>Please note that at this point, nothing finalized, everything is subject to change.</p>
+
 <h1>Changelog</h1>
+
+<h2>2018-03-20</h2>
+
+<pre>
+- use "phosphor" as name
+- some code cleanup
+</pre>
 
 <h2>2018-03-19</h2>
 

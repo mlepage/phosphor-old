@@ -91,9 +91,9 @@ end
 
 function localStorageAvailable() {
   try {
-    localStorage.setItem('mcomputer', 'test');
-    const result = localStorage.getItem('mcomputer') == 'test';
-    localStorage.removeItem('mcomputer');
+    localStorage.setItem('phosphor', 'test');
+    const result = localStorage.getItem('phosphor') == 'test';
+    localStorage.removeItem('phosphor');
     return result;
   } catch(e) {
     return false;
@@ -102,7 +102,7 @@ function localStorageAvailable() {
 
 // Returns filesystem key, assuming absolute name
 function fskey(name) {
-  return `mcomputer:${name}`;
+  return `phosphor:${name}`;
 }
 
 const filesystem = localStorageAvailable() ? localStorage : {};
@@ -110,7 +110,7 @@ filesystem[fskey('/')] = true;
 filesystem[fskey('/hello')] = demoHello;
 filesystem[fskey('/bounce')] = demoBounce;
 
-// File handle looks like: { file:'/full/path/name', key:'mcomputer:/full/path/name', mode:'r+', pos:123 }
+// File handle looks like: { file:'/full/path/name', key:'phosphor:/full/path/name', mode:'r+', pos:123 }
 function isFile(handle) {
   return handle && handle.file;
 }
@@ -158,7 +158,7 @@ function fileOpen(filename, mode) {
     return undefined;
   // TODO relative paths './foo' '../foo' '..//../././//foo' etc. using cwd
   // TODO absolute paths (already have '/' root)
-  const key = `mcomputer:/${filename}`;
+  const key = `phosphor:/${filename}`;
   var pos = 0;
   switch (mode) {
     case 'r':
@@ -281,12 +281,6 @@ module.exports = class Micro {
     this.sys._cwd = '/';
     
     this.mem = new Uint8Array(0x9000); // 32 KiB RAM + 4 KiB ROM
-    
-    // TEMP load memory image from hardcoded file
-    delete this.sys._os.filesystem['mcomputer:mem'];
-    //const memstr = this.sys._os.filesystem['mcomputer:mem'];
-    //if (memstr)
-    //  this.sys.memwrite(0x3000, memstr);
     
     // character rom
     this.sys.memwrite(CRAM+32*8, CROM);
@@ -522,8 +516,8 @@ module.exports = class Micro {
     if (!filesystem[fskey(name)])
       return undefined;
     const list = [];
-    const len = 10 + name.length;
-    const re = new RegExp(`^mcomputer:${name}[^/]+/?$`);
+    const len = 9 + name.length;
+    const re = new RegExp(`^phosphor:${name}[^/]+/?$`);
     for (var key in filesystem)
       if (filesystem.hasOwnProperty(key) && re.test(key))
         list.push(key.slice(len));
@@ -703,7 +697,7 @@ module.exports = class Micro {
       name += '/';
     if (!filesystem[fskey(name)])
       return undefined;
-    const re = new RegExp(`^mcomputer:${name}`);
+    const re = new RegExp(`^phosphor:${name}`);
     for (var key in filesystem)
       if (filesystem.hasOwnProperty(key) && re.test(key))
         delete filesystem[key];
