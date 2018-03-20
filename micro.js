@@ -27,7 +27,7 @@ const H = 128; // for graphics
 // Character ROM, 8 bytes per 128 characters
 // Each byte is one row, each bit (LSB to MSB) is one col (left to right)
 // Last 8 bytes (char 127 DEL) are width/height bytes for 4 banks of 32 chars
-const CROM = '0000000000000000004040400040000000a0a0000000000000a0e0a0e0a0000000e060c0e040000000a0804020a000000040a060a06100000040400000000000008040404080000000408080804000000000a040a0000000000040e0400000000000000000402000000000e0000000000000000000400000000181c06020000000c0a16121c000000040604040e0000000e001c020e1000000e001c001e0000000a0a0e18080000000e120e001e0000000c120e021c0000000e101804040000000c021c021c0000000c021c101c000000000004000400000000000400040200000804020408000000000e000e0000000004080018040000000e001c00040000000c021a120c1000000c02121e121000000e021e021e0000000c0212021c0000000e0212121e0000000e120e020e1000000e120e02020000000c120a121c10000002121e12121000000e0404040e0000000c1010121c000000021a060a02100000020202020e1000000e1a12121210000002161a12121000000c0212121c0000000e02121e020000000c0212121c0010000e02121e021000000c120c001e0000000e14040404000000021212121c0000000212121a04000000021212161e10000002121c021210000002121c101c0000000e1018040e1000000c0404040c00000002060c08101000000c0808080c000000040a000000000000000000000e1000000004080000000000000c12121c100000020e02121e000000000c12020c100000001c12121c100000000c0a160c00000008140e1404000000000c021c101c0000020e02121210000008000c080c10000000100810121c000002021e02121000000604040408100000000e1a1212100000000e021212100000000c02121c000000000e02121e020000000c12121c101000000c120202000000000c14080e000000040e140408100000000212121c0000000002121a04000000000212161e10000000021c02121000000002121c101c0000000e18040e1000000c0406040c00000004040404040000000c0808180c00000000041a0000000008080507050705070';
+const CROM = '00000000000000000004040400040000000a0a0000000000000a0e0a0e0a0000000e060c0e040000000a0804020a000000040a060a16000000040400000000000008040404080000000408080804000000000a040a0000000000040e0400000000000000000402000000000e0000000000000000000400000010180c06020000000c1a16120c000000040604040e0000000e100c021e0000000e100c100e0000000a0a1e08080000001e020e100e0000001c020e120c0000001e100804040000000c120c120c0000000c121c100c000000000004000400000000000400040200000804020408000000000e000e0000000004081008040000000e100c00040000000c121a021c0000000c12121e120000000e120e120e0000000c1202120c0000000e1212120e0000001e020e021e0000001e020e02020000001c021a121c00000012121e12120000000e0404040e0000001c1010120c000000120a060a12000000020202021e0000001e1a12121200000012161a12120000000c1212120c0000000e12120e020000000c1212120c1000000e12120e120000001c020c100e0000001e04040404000000121212120c0000001212120a04000000121212161e00000012120c121200000012121c100c0000001e1008041e0000000c0404040c00000002060c18100000000c0808080c000000040a000000000000000000001e0000000004080000000000001c12121c000000020e12120e000000001c02021c000000101c12121c000000000c1a060c00000018041e0404000000000c121c100c0000020e12121200000008000c081c00000010001810120c000002120e12120000000604040418000000001e1a1212000000000e121212000000000c12120c000000000e12120e020000001c12121c100000001c020202000000001c04080e000000041e040418000000001212120c0000000012120a04000000001212161e00000000120c12120000000012121c100c0000001e08041e0000000c0406040c00000004040404040000000c0818080c00000000140a000000000808050705070507';
 
 const mrom = {}; // module rom
 
@@ -283,9 +283,10 @@ module.exports = class Micro {
     this.mem = new Uint8Array(0x9000); // 32 KiB RAM + 4 KiB ROM
     
     // TEMP load memory image from hardcoded file
-    const memstr = this.sys._os.filesystem['mcomputer:mem'];
-    if (memstr)
-      this.sys.memwrite(0x3000, memstr);
+    delete this.sys._os.filesystem['mcomputer:mem'];
+    //const memstr = this.sys._os.filesystem['mcomputer:mem'];
+    //if (memstr)
+    //  this.sys.memwrite(0x3000, memstr);
     
     // character rom
     this.sys.memwrite(CRAM+32*8, CROM);
@@ -436,10 +437,25 @@ module.exports = class Micro {
     this._os.mem.fill((c<<4)|c, 0, 0x3000);
   }
 
-  syscall_export() {
+  syscall_export(name) {
     systrace('export', this, arguments);
+    name = resolve(this._cwd, name);
+    if (name.charAt(name.length-1) === '/')
+      return undefined;
+    if (filesystem[fskey(name)] === undefined)
+      return undefined;
+    const contents = filesystem[fskey(name)];
+    var basename = name.substr(name.lastIndexOf('/') + 1);
+    if (!/\.lua$/.test(basename))
+      basename += '.lua';
+    this._os.bspExport(basename, contents);
+    return name;
+  }
+
+  syscall_exportfs() {
+    systrace('exportfs', this, arguments);
     const json = JSON.stringify(filesystem);
-    this._os.bspExport('filesystem.json', json);
+    this._os.bspExportFs('filesystem.json', json);
   }
 
   syscall_gpixel(x, y, c) {
@@ -450,6 +466,11 @@ module.exports = class Micro {
   syscall_import() {
     systrace('import', this, arguments);
     this._os.bspImport();
+  }
+
+  syscall_importfs() {
+    systrace('importfs', this, arguments);
+    this._os.bspImportFs();
   }
 
   syscall_input(file) {
@@ -469,9 +490,20 @@ module.exports = class Micro {
   syscall_load(filename) {
     systrace('load', this, arguments);
     const handle = fileOpen(filename, 'r');
+    this.memset(0x3000, 0, 0x5000);
+    delete window.program_handle;
+    delete window.program_code;
     // TODO should return true/false and let shell print feedback
     if (handle) {
-      window.loadedFile = handle.file
+      var contents = this._os.filesystem[handle.key];
+      contents = contents.replace(/--\[\[phosphor@[0-9A-Fa-f]{4}=[0-9A-Fa-f]+\]\]\n?/g, (match) => {
+        const addr = (fromHex[match[13]]<<12)|(fromHex[match[14]]<<8)|(fromHex[match[15]]<<4)|fromHex[match[16]]
+        const str = match.substring(18, match.length - (match[match.length-1] == '\n' ? 3 : 2));
+        this.memwrite(addr, str);
+        return '';
+      });
+      window.program_handle = handle;
+      window.program_code = contents;
       this.print('ok');
     } else {
       this.print('load error');
@@ -538,13 +570,35 @@ module.exports = class Micro {
     this._os.mem[MRAM+y*96+x] = n;
   }
 
+  // TODO support moving dirs, files into dirs, etc.
+  syscall_mv(name1, name2) {
+    systrace('mv', this, arguments);
+    if (name1 === undefined || name2 === undefined)
+      return undefined;
+    name1 = resolve(this._cwd, name1);
+    if (name1.charAt(name1.length-1) === '/')
+      return undefined;
+    if (filesystem[fskey(name1)] === undefined)
+      return undefined;
+    name2 = resolve(this._cwd, name2);
+    if (name2.charAt(name2.length-1) === '/')
+      return undefined;
+    if (filesystem[fskey(name2)] !== undefined)
+      return undefined;
+    filesystem[fskey(name2)] = filesystem[fskey(name1)];
+    delete filesystem[fskey(name1)];
+    return name2;
+  }
+
   // Sounds like open should create new file descriptor
   // but sometimes (spawn) you want to dup
   // https://stackoverflow.com/questions/5284062/two-file-descriptors-to-same-file
 
   syscall_open(filename, mode) {
     systrace('open', this, arguments);
-    // TODO resolve filename to absolute
+    filename = resolve(this._cwd, filename);
+    // TODO fix this mess
+    filename = filename.slice(1);
     return fileOpen(filename, mode);
   }
 
@@ -622,6 +676,22 @@ module.exports = class Micro {
   }
 
   // Return undefined if no arg
+  // Return undefined if file does not exist
+  // Return resolved name if successful
+  syscall_rm(name) {
+    systrace('rm', this, arguments);
+    if (name === undefined)
+      return undefined;
+    name = resolve(this._cwd, name);
+    if (name.charAt(name.length-1) === '/')
+      return undefined;
+    if (!filesystem[fskey(name)])
+      return undefined;
+    delete filesystem[fskey(name)];
+    return name;
+  }
+
+  // Return undefined if no arg
   // Return undefined if directory does not exist
   // Return resolved name if successful
   syscall_rmdir(name) {
@@ -638,6 +708,43 @@ module.exports = class Micro {
       if (filesystem.hasOwnProperty(key) && re.test(key))
         delete filesystem[key];
     return name;
+  }
+
+  syscall_save() {
+    systrace('save', this, arguments);
+    const filesystem = this._os.filesystem;
+    const mem = this._os.mem;
+    var contents = window.program_code || '';
+    var len;
+    // sprite
+    for (len = 0x2000; len > 0; --len) {
+      if (mem[0x3000+len-1] != 0)
+        break;
+    }
+    if (len > 0)
+      contents += `--[[phosphor@3000=${this.memread(0x3000, len)}]]\n`
+    // map
+    for (len = 0x2400; len > 0; --len) {
+      if (mem[0x5000+len-1] != 0)
+        break;
+    }
+    if (len > 0)
+      contents += `--[[phosphor@5000=${this.memread(0x5000, len)}]]\n`
+    if (/\S/.test(contents)) {
+      if (!window.program_handle) {
+        var filename = 'untitled';
+        for (var i = 1; ; ++i) {
+          if (this.open(filename, 'r') === undefined) {
+            break;
+          }
+          filename = `untitled-${i}`
+        }
+        window.program_handle = this.open(filename, 'w+');
+      }
+      filesystem[window.program_handle.key] = contents;
+    } else if (window.program_handle) {
+      this._os.filesystem[window.program_handle.key] = '';
+    }
   }
 
   syscall_scale(scale) {
@@ -771,7 +878,7 @@ module.exports = class Micro {
     var str = '';
     for (; 0 < len; --len) {
       var b = mem[addr++];
-      str += toHex[b&0xf] + toHex[b>>4];
+      str += toHex[b>>4] + toHex[b&0xf];
     }
     return str;
   }
@@ -783,7 +890,7 @@ module.exports = class Micro {
   syscall_memwrite(addr, str) {
     const mem = this._os.mem;
     for (var i = 0, len = str.length&~1; i < len; i+=2) {
-      mem[addr++] = fromHex[str.charAt(i)] | (fromHex[str.charAt(i|1)]<<4);
+      mem[addr++] = (fromHex[str.charAt(i)]<<4) | fromHex[str.charAt(i|1)];
     }
   }
 
@@ -803,6 +910,12 @@ module.exports = class Micro {
   }
 
   onFileImport(name, contents) {
+    // HACK
+    name = '/' + name.substr(name.lastIndexOf('/') + 1).replace('.lua', '');
+    filesystem[fskey(name)] = contents;
+  }
+
+  onFsImport(name, contents) {
     // HACK
     var obj;
     try {
@@ -913,6 +1026,8 @@ module.exports = class Micro {
   bspExport(name, contents) {console.log('bspExport')}
 
   bspImport() {console.log('bspImport')}
+
+  bspImportFs() {console.log('bspImportFs')}
 
   bspScreenChar(ch, x, y, fg, bg) {console.log('bspScreenChar')}
 

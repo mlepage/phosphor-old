@@ -111,6 +111,23 @@ function fileImport() {
   //document.body.removeChild(input);
 }
 
+function fsImport() {
+  const input = document.querySelector('input');
+  //const input = document.createElement('input');
+  input.style.display = 'none';
+  input.addEventListener('change', () => {
+    const reader = new FileReader();
+    reader.onload = event => {
+      console.log(event.target);
+      this.onFsImport(input.files[0].name, event.target.result);
+    };
+    reader.readAsText(event.target.files[0]);
+  }, {once:true});
+  //document.body.appendChild(input);
+  input.click();
+  //document.body.removeChild(input);
+}
+
 function mouseClick(e) {
   // TODO reuse object for event
   const rect = e.target.getBoundingClientRect();
@@ -309,6 +326,7 @@ module.exports = {
     micro.bspAudioBeep = audioBeep;
     micro.bspExport = fileExport;
     micro.bspImport = fileImport;
+    micro.bspImportFs = fsImport;
     micro.bspScreenClear = screenClear;
     micro.bspScreenPixel = screenPixel;
     micro.bspScreenRect = screenRect;

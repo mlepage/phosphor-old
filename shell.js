@@ -3,25 +3,29 @@
 
 'use strict';
 
-const helpText = `help   - show commands
-mkdir  - make directory
-rmdir  - remove directory
-cd     - change directory
-ls     - list files in directory
-load   - load program file
-run    - run program file
-export - save filesystem to host
-import - load filesystem from host
-scale  - change host scale factor
-reboot - reboot computer
+const helpText = `help     - show commands
+mkdir    - make directory
+rmdir    - remove directory
+cd       - change directory
+ls       - list files in directory
+mv       - move file
+rm       - remove file
+load     - load program file
+run      - run program file
+export   - save file to host
+import   - load file from host
+exportfs - save filesystem to host
+importfs - load filesystem from host
+scale    - change host scale factor
+reboot   - reboot computer
 
-ESC    - toggle console/editor
-CTRL+0 - console (command line)
-CTRL+1 - code editor
-CTRL+2 - sprite editor
-CTRL+3 - map editor
-CTRL+4 - sound editor
-CTRL+5 - music editor
+ESC      - toggle console/editor
+CTRL+0   - console (command line)
+CTRL+1   - code editor
+CTRL+2   - sprite editor
+CTRL+3   - map editor
+CTRL+4   - sound editor
+CTRL+5   - music editor
 `;
 
 module.exports = class Shell {
@@ -76,7 +80,14 @@ module.exports = class Shell {
   }
 
   async builtin_export(...args) {
-    this.sys.export();
+    args.shift();
+    const result = this.sys.export(...args);
+    this.sys.write(result ? 'exported' : 'no such file', '\n');
+  }
+
+  async builtin_exportfs(...args) {
+    args.shift();
+    this.sys.exportfs(...args);
   }
 
   async builtin_help(...args) {
@@ -84,11 +95,19 @@ module.exports = class Shell {
   }
 
   async builtin_import(...args) {
-    this.sys.import();
+    args.shift();
+    this.sys.import(...args);
+  }
+
+  async builtin_importfs(...args) {
+    // TODO check for user confirmation
+    args.shift();
+    this.sys.importfs(...args);
   }
 
   async builtin_load(...args) {
-    this.sys.load(args[1]);
+    args.shift();
+    this.sys.load(...args);
   }
 
   async builtin_ls(...args) {
@@ -107,9 +126,21 @@ module.exports = class Shell {
     this.sys.write(result ? 'directory made' : 'cannot make directory', '\n');
   }
 
+  async builtin_mv(...args) {
+    args.shift();
+    const result = this.sys.mv(args.shift(), args.shift());
+    this.sys.write(result ? 'file moved' : 'cannot move file', '\n');
+  }
+
   async builtin_reboot(...args) {
     this.exit = true;
     this.sys.reboot();
+  }
+
+  async builtin_rm(...args) {
+    args.shift();
+    const result = this.sys.rm(args.shift());
+    this.sys.write(result ? 'file removed' : 'no such file', '\n');
   }
 
   async builtin_rmdir(...args) {

@@ -5,7 +5,8 @@
 
 const Ui = require('./ui.js');
 
-const floor = Math.floor;
+const floor = Math.floor, ceil = Math.ceil;
+const min = Math.min, max = Math.max;
 
 function sprite2char(sys, n) {
   var a = 0x8000+(n<<3);
@@ -36,6 +37,12 @@ module.exports = class SpriteEditor {
   main() {
     const sys = this.sys;
     
+    var sheetX = 0; // sheet origin (cells)
+    var sheetY = 0; // sheet origin (cells)
+    var sheetW = 8; // sheet size (cells)
+    var sheetH = 8; // sheet size (cells)
+    var sheetWrap = false; // sheet wrap or not
+    
     var color = 15; // paint color
     var sprite = 0; // index of selected sprite
     var sheetx = 0; // sheet scroll x
@@ -45,21 +52,21 @@ module.exports = class SpriteEditor {
     
     var bg = 3;
     
-    this.ui = new Ui([
+    const ui = new Ui([
       { // bg
         x: 0, y: 0, w: 192, h: 128,
         onDraw() {
-          sys.clear(bg);
-          sys.rect(0, 0, 192, 8, 11);
-          sys.rect(0, 120, 192, 8, 11);
+          sys.clear(3);
+          sys.rect(0, 0, 192, 7, 11);
+          sys.rect(0, 121, 192, 7, 11);
           var str = ''+sprite;
           sys.text(str, 191-5*str.length, 121, 5);
         },
       },
-      { // sprite
-        x: 13, y: 16, w: 96, h: 96,
+      { // canvas
+        x: 12, y: 16, w: 96, h: 96,
         onDraw() {
-          sys.rect(this.x-1, this.y-1, this.w+2, this.h+2, undefined, 0);
+          sys.rect(this.x-1, this.y-1, this.w+2, this.h+2, null, 0);
           for (var y = 0; y < 8; ++y)
             for (var x = 0; x < 8; ++x)
               sys.rect(this.x+x*12, this.y+y*12, 12, 12, sys.sget(sprite, x, y));
@@ -77,21 +84,39 @@ module.exports = class SpriteEditor {
         },
       },
       { // sheet
-        x: 120, y: 48, w: 64, h: 64,
+        x: 119, y: 48, w: 64, h: 64,
         onDraw() {
-          sys.rect(this.x-1, this.y-1, this.w+2, this.h+2, undefined, 0);
-          for (var y = 0; y < 8; ++y)
-            for (var x = 0; x < 8; ++x)
-              sys.spr(((sheety+y)<<4)+(sheetx+x), this.x+(x<<3), this.y+(y<<3));
-          const sel = sprite & ~136;
-          sys.rect(this.x+((sel&0xf)<<3)-1, this.y+((sel&0xf0)>>1)-1, 10, 10, undefined, 15);
+          // sheet outline
+          sys.rect(this.x-1, this.y-1, this.w+2, this.h+2, null, 0);
+          // sprites
+          for (var y = 0; y < sheetH; ++y)
+            for (var x = 0; x < sheetW; ++x)
+              sys.spr(((sheetY+y)<<4)+(sheetX+x), this.x+(x<<3), this.y+(y<<3));
+          // selected sprite outline
+          x = (sprite&0xf)-sheetX;
+          y = (sprite>>4)-sheetY;
+          if (0 <= x && x < 8 && 0 <= y && y < 8) {
+            sys.rect(this.x+(x<<3)-1, this.y+(y<<3)-1, 10, 10, null, 15);
+          }
         },
         onMouseDown(e) {
-          sprite = ((sheety+(e.y>>3))<<4)+(sheetx+(e.x>>3));
+          sprite = (sheetY+(e.y>>3))*16+sheetX+(e.x>>3);
+        },
+        onWheel(e) {
+          if (e.deltaY <= -1) {
+            sheetY = max(sheetY-1, 0);
+          } else if (e.deltaY >= 1) {
+            sheetY = min(sheetY+1, 8);
+          }
+          if (e.deltaX <= -1) {
+            sheetX = max(sheetX-1, 0);
+          } else if (e.deltaX >= 1) {
+            sheetX = min(sheetX+1, 8);
+          }
         },
       },
       { // palette
-        x: 120, y: 16, w: 64, h: 16,
+        x: 119, y: 16, w: 64, h: 16,
         onDraw() {
           sys.rect(this.x-1, this.y-1, this.w+2, this.h+2, undefined, 0);
           for (var c = 0; c < 16; ++c)
@@ -104,105 +129,68 @@ module.exports = class SpriteEditor {
           color = (e.y&0x8)+(e.x>>3);
         },
       },
-      { // tool button (pen)
-        x:2, y: 18, w: 8, h: 8,
+      { // tool button (draw)
+        x: 0, y: 16, w: 12, h: 12,
         onDraw() {
-          sys.char(8, this.x, this.y, 10);
+          sys.char(16, 2+this.x, 2+this.y, 10);
+        },
+        onMouseDown() {
+        },
+      },
+      { // tool button (fill)
+        x: 0, y: 28, w: 12, h: 12,
+        onDraw() {
+          sys.char(17, 2+this.x, 2+this.y, 7);
+        },
+        onMouseDown() {
+        },
+      },
+      { // tool button (select)
+        x: 0, y: 40, w: 12, h: 12,
+        onDraw() {
+          sys.char(19, 2+this.x, 2+this.y, 7);
+        },
+        onMouseDown() {
+        },
+      },
+      { // tool button (pan)
+        x: 0, y: 52, w: 12, h: 12,
+        onDraw() {
+          sys.char(20, 2+this.x, 2+this.y, 7);
+        },
+        onMouseDown() {
         },
       },
       { // tool button
-        x:2, y: 30, w: 8, h: 8,
+        x: 0, y: 64, w: 10, h: 12,
         onDraw() {
-          sys.char(9, this.x, this.y, 7);
-        },
-      },
-      { // tool button
-        x:2, y: 42, w: 8, h: 8,
-        onDraw() {
-          sys.char(10, this.x, this.y, 7);
-        },
-      },
-      { // tool button
-        x:2, y: 54, w: 8, h: 8,
-        onDraw() {
-          sys.char(11, this.x, this.y, 7);
-        },
-      },
-      { // tool button
-        x:2, y: 66, w: 8, h: 8,
-        onDraw() {
-          sys.char(12, this.x, this.y, 7);
-        },
-      },
-      { // tool button
-        x:2, y: 78, w: 8, h: 8,
-        onDraw() {
-          sys.char(13, this.x, this.y, 7);
+          //sys.char(0, 1+this.x, 2+this.y, 7);
         },
         onMouseDown() {
-          bg = bg != 3 ? 3 : 7;
         },
       },
-      { // tool button
-        x:2, y: 90, w: 8, h: 8,
+      { // tool button (zoom out)
+        x: 0, y: 76, w: 10, h: 12,
         onDraw() {
-          sys.char(14, this.x, this.y, 7);
+          //sys.char(21, 1+this.x, 2+this.y, 7);
         },
         onMouseDown() {
-          bg = (bg+15)%16;
         },
       },
-      { // tool button
-        x:2, y: 102, w: 8, h: 8,
+      { // tool button (zoom in)
+        x: 0, y: 88, w: 10, h: 12,
         onDraw() {
-          sys.char(15, this.x, this.y, 7);
+          //sys.char(22, 1+this.x, 2+this.y, 7);
         },
         onMouseDown() {
-          bg = (bg+1)%16;
         },
       },
-      { // sheet scroll button (left)
-        x:128+8, y: 128-16, w: 8, h: 8,
+      { // tool button (grid)
+        x: 0, y: 100, w: 10, h: 12,
         onDraw() {
-          sys.char(16, this.x, this.y, sheetx == 0 ? 10 : 7);
+          //sys.char(23, 1+this.x, 2+this.y, 7);
         },
         onMouseDown() {
-          sheetx = 0;
-          sprite &= ~8;
-          console.log('selected', sprite);
-        },
-      },
-      { // sheet scroll button (right)
-        x:128+32, y: 128-16, w: 8, h: 8,
-        onDraw() {
-          sys.char(17, this.x, this.y, sheetx == 8 ? 10 : 7);
-        },
-        onMouseDown() {
-          sheetx = 8;
-          sprite |= 8;
-          console.log('selected', sprite);
-        },
-      },
-      { // sheet scroll button (up)
-        x:192-8, y: 128-64, w: 8, h: 8,
-        onDraw() {
-          sys.char(18, this.x, this.y, sheety == 0 ? 10 : 7);
-        },
-        onMouseDown() {
-          sheety = 0;
-          sprite &= ~128;
-          console.log('selected', sprite);
-        },
-      },
-      { // sheet scroll button (down)
-        x:192-8, y: 128-40, w: 8, h: 8,
-        onDraw() {
-          sys.char(19, this.x, this.y, sheety == 8 ? 10 : 7);
-        },
-        onMouseDown() {
-          sheety = 8;
-          sprite |= 128;
-          console.log('selected', sprite);
         },
       },
 /*
@@ -236,33 +224,57 @@ module.exports = class SpriteEditor {
           console.log(sys.memread(0x8000+32*8, 96*8));
         },
       },
-      { // temp button (load ui)
-        x:64, y: 128-16, w: 8, h: 8,
+*/
+      { // menu button (menu)
+        x: 0, y: 0, w: 8, h: 9,
         onDraw() {
-          sys.text('LU', this.x, this.y+1, 7);
+          sys.char(6, this.x, this.y, 5);
         },
         onMouseDown() {
-          // TEMP for working on ui sprites
-          //console.log('load: ui --> sheet');
-          //sys.memcpy(0x3000+sprite*32, 0x8400+(sprite&0xf)*32, 32);
-          //console.log(sys.memread(0x8400+(sprite&0xf)*32, 32));
         },
       },
-      { // temp button (save ui)
-        x:80, y: 128-16, w: 8, h: 8,
+      { // menu button (undo)
+        x: 16, y: 0, w: 8, h: 9,
         onDraw() {
-          sys.text('SU', this.x, this.y+1, 7);
+          sys.char(7, this.x, this.y, 5);
         },
         onMouseDown() {
-          // TEMP for working on ui sprites
-          //console.log('save: sheet --> ui');
-          //sys.memcpy(0x8400+(sprite&0xf)*32, 0x3000+sprite*32, 32);
-          //console.log(sys.memread(0x8400+(sprite&0xf)*32, 32));
         },
       },
-      */
+      { // menu button (redo)
+        x: 24, y: 0, w: 8, h: 9,
+        onDraw() {
+          sys.char(8, this.x, this.y, 5);
+        },
+        onMouseDown() {
+        },
+      },
+      { // menu button (cut)
+        x: 40, y: 0, w: 8, h: 9,
+        onDraw() {
+          sys.char(9, this.x, this.y, 5);
+        },
+        onMouseDown() {
+        },
+      },
+      { // menu button (copy)
+        x: 48, y: 0, w: 8, h: 9,
+        onDraw() {
+          sys.char(10, this.x, this.y, 5);
+        },
+        onMouseDown() {
+        },
+      },
+      { // menu button (paste)
+        x: 56, y: 0, w: 8, h: 9,
+        onDraw() {
+          sys.char(11, this.x, this.y, 5);
+        },
+        onMouseDown() {
+        },
+      },
       { // menu button (code)
-        x:152, y: 0, w: 8, h: 8,
+        x: 152, y: 0, w: 8, h: 8,
         onDraw() {
           sys.char(1, this.x, this.y, 5);
         },
@@ -271,7 +283,7 @@ module.exports = class SpriteEditor {
         },
       },
       { // menu button (sprite)
-        x:160, y: 0, w: 8, h: 8,
+        x: 160, y: 0, w: 8, h: 8,
         onDraw() {
           sys.char(2, this.x, this.y, 15);
         },
@@ -280,7 +292,7 @@ module.exports = class SpriteEditor {
         },
       },
       { // menu button (map)
-        x:168, y: 0, w: 8, h: 8,
+        x: 168, y: 0, w: 8, h: 8,
         onDraw() {
           sys.char(3, this.x, this.y, 5);
         },
@@ -289,7 +301,7 @@ module.exports = class SpriteEditor {
         },
       },
       { // menu button (sound)
-        x:176, y: 0, w: 8, h: 8,
+        x: 176, y: 0, w: 8, h: 8,
         onDraw() {
           sys.char(4, this.x, this.y, 5);
         },
@@ -298,7 +310,7 @@ module.exports = class SpriteEditor {
         },
       },
       { // menu button (music)
-        x:184, y: 0, w: 8, h: 8,
+        x: 184, y: 0, w: 8, h: 8,
         onDraw() {
           sys.char(5, this.x, this.y, 5);
         },
@@ -312,13 +324,14 @@ module.exports = class SpriteEditor {
   // ---------------------------------------------------------------------------
 
   onResume() {
-    this.sys.memwrite(0x8000, '000000000000000000c644444444c60000c3e7a5e766c3000066e74242e76600000141c5c7e7e70000020202c3e3c10000000000000000000000000000000000020783c1e050300000010204efd7931181c3c3c38181ffff414545d3e300c100000000000000000000c12222af27020077b6777777b67700f7f7d522d5f7f700000080c0e0c08000000080818381800000000183c700000000000000c7830100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000');
+    this.sys.memwrite(0x8000, '00221408142200000036222222360000001c2a3e3e2a0000003636003636000000080c2c3c3e0000001010101c1c0000007c007c007c00000010087c081000000010207c20100000002828106c6c0000003c7c4c4c78000000787c64643c0000000000000000000000000000000000000000000000000000000000000000000010387c3e1d090700102040fe7d391100000000000000000055004100410055001454547d7f7e3c007f41415d41417f007f41495d49417f007f557f557f557f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040604000000000404040400000000040c0400');
   }
 
   onSuspend() {
+    this.sys.save();
     // HACK directly access memory and filesystem
-    if (!window.editCharset)
-      this.sys._os.filesystem['mcomputer:mem'] = this.sys.memread(0x3000, 0x5000);
+    //if (!window.editCharset)
+    //  this.sys._os.filesystem['mcomputer:mem'] = this.sys.memread(0x3000, 0x5000);
   }
 
 };

@@ -29,7 +29,7 @@ module.exports = class MapEditor {
     
     var mouseDown = false;
     
-    var ui = new Ui([
+    const ui = new Ui([
       { // bg
         x: 0, y: 0, w: 192, h: 128,
         onDraw() {
@@ -200,13 +200,13 @@ module.exports = class MapEditor {
           ui.sheet.w = sheetW<<3;
           ui.sheet.x = 191-ui.sheet.w;
           ui.split_left.x = ui.sheet.x-5;
-          ui.split_layout.x = ui.sheet.x-5;
+          ui.split_wrap.x = ui.sheet.x-5;
           ui.split_right.x = ui.sheet.x-5;
           sheetY = min(sheetY, ceil(256/sheetW)-sheetH);
         },
       },
-      { // splitter button (layout)
-        x: 122, y: 58, w: 5, h: 12, name: 'split_layout',
+      { // splitter button (wrap)
+        x: 122, y: 58, w: 5, h: 12, name: 'split_wrap',
         onDraw() {
           sys.char(30, this.x, this.y, 7);
         },
@@ -227,7 +227,7 @@ module.exports = class MapEditor {
           ui.sheet.w = sheetW<<3;
           ui.sheet.x = 191-ui.sheet.w;
           ui.split_left.x = ui.sheet.x-5;
-          ui.split_layout.x = ui.sheet.x-5;
+          ui.split_wrap.x = ui.sheet.x-5;
           ui.split_right.x = ui.sheet.x-5;
         },
       },
@@ -330,13 +330,14 @@ module.exports = class MapEditor {
   // ---------------------------------------------------------------------------
 
   onResume() {
-    this.sys.memwrite(0x8000, '0022418041220000006322222263000000c1a2e3e3a2000000636300636300000080c0c2c3e3000000010101c1c1000000c700c700c70000000180c780010000000102c70201000000828201c6c6000000c3c7c4c48700000087c74646c3000000000000000000000000000000000000000000000000000000000000000000000183c7e3d1907000010204efd793110000000000000000005500140014005500414545d7f7e7c300f71414d51414f700f71494d59414f700f755f755f755f70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040604000000000404040400000000040c04000');
+    this.sys.memwrite(0x8000, '00221408142200000036222222360000001c2a3e3e2a0000003636003636000000080c2c3c3e0000001010101c1c0000007c007c007c00000010087c081000000010207c20100000002828106c6c0000003c7c4c4c78000000787c64643c0000000000000000000000000000000000000000000000000000000000000000000010387c3e1d090700102040fe7d391100000000000000000055004100410055001454547d7f7e3c007f41415d41417f007f41495d49417f007f557f557f557f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040604000000000404040400000000040c0400');
   }
 
   onSuspend() {
-    // HACK directly access memory and filesystem
-    if (!window.editCharset)
-      this.sys._os.filesystem['mcomputer:mem'] = this.sys.memread(0x3000, 0x5000);
+    this.sys.save();
+    //// HACK directly access memory and filesystem
+    //if (!window.editCharset)
+    //  this.sys._os.filesystem['mcomputer:mem'] = this.sys.memread(0x3000, 0x5000);
   }
 
 };

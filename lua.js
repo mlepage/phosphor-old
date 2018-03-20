@@ -125,7 +125,7 @@ module.exports = class Lua {
     // HACK to choose code to run
     var code = this.sys._os.filesystem[`mcomputer:/${args[1]}`];
     if (!code)
-      code = this.sys._os.filesystem[`mcomputer:${window.loadedFile}`];
+      code = window.program_code;
     if (!code)
       return;
     
