@@ -1,5 +1,5 @@
-// Simple computer
-// Marc Lepage Fall 2017
+// Phosphor - a browser-based microcomputer
+// Copyright (c) 2017-2018 Marc Lepage
 
 'use strict';
 
@@ -91,7 +91,7 @@ module.exports = class SpriteEditor {
           // sprites
           for (var y = 0; y < sheetH; ++y)
             for (var x = 0; x < sheetW; ++x)
-              sys.spr(((sheetY+y)<<4)+(sheetX+x), this.x+(x<<3), this.y+(y<<3));
+              sys.sprite(((sheetY+y)<<4)+(sheetX+x), this.x+(x<<3), this.y+(y<<3));
           // selected sprite outline
           x = (sprite&0xf)-sheetX;
           y = (sprite>>4)-sheetY;

@@ -1,9 +1,9 @@
-// Simple computer
-// Marc Lepage, Fall 2017
+// Phosphor - a browser-based microcomputer
+// Copyright (c) 2017-2018 Marc Lepage
 
 'use strict';
 
-const floor = Math.floor;
+const abs = Math.abs, floor = Math.floor;
 
 const toHex = [
   '0', '1', '2', '3', '4', '5', '6', '7',
@@ -16,11 +16,12 @@ const fromHex = {
   'A':0xa, 'B':0xb, 'C':0xc, 'D':0xd, 'E':0xe, 'F':0xf
 };
 
+// Memory map
 const VRAM = 0x0000; // video ram (12K)
 const SRAM = 0x3000; // sprite ram (8K)
 const MRAM = 0x5000; // map ram (9K)
 const CRAM = 0x8000; // character ram (1K)
-const URAM = 0x8400; // ui sprite ram (1K)
+
 const W = 192; // for graphics
 const H = 128; // for graphics
 
@@ -253,22 +254,64 @@ function pset(vram, x, y, c) {
   vram[a] = (b&(0xf0>>s)) | (c<<s);
 }
 
-module.exports = class Micro {
+function plotLineLow(mem, x0, y0, x1, y1, c) {
+  var dx = x1 - x0;
+  var dy = y1 - y0;
+  var yi = 1;
+  if (dy < 0) {
+    yi = -1;
+    dy = -dy;
+  }
+  var D = 2*dy - dx;
+  var y = y0;
+
+  for (var x = x0; x <= x1; ++x) {
+    pset(mem, x, y, c);
+    if (D > 0) {
+       y = y + yi;
+       D = D - 2*dx;
+    }
+    D = D + 2*dy;
+  }
+}
+
+function plotLineHigh(mem, x0, y0, x1, y1, c) {
+  var dx = x1 - x0;
+  var dy = y1 - y0;
+  var xi = 1;
+  if (dx < 0) {
+    xi = -1;
+    dx = -dx;
+  }
+  var D = 2*dx - dy;
+  var x = x0;
+
+  for (var y = y0; y <= y1; ++y) {
+    pset(mem, x, y, c);
+    if (D > 0) {
+       x = x + xi;
+       D = D - 2*dy;
+    }
+    D = D + 2*dx;
+  }
+}
+
+module.exports = class Phosphor {
 
   constructor() {
     // TODO probably should go into a device profile
     // and be exposed to both bsp and to processes
     this.w = 192; // screen width
     this.h = 128; // screen height
-    this.cw = 5; // char width
-    this.ch = 7; // char height
+    
+    this.mem = new Uint8Array(0x8400); // 32 KiB RAM + 1 KiB ROM
     
     this.filesystem = filesystem; // HACK
     
     // TODO syscall object could probably be global (reuse per computer)
     this.syscall = { _os:this };
     // https://stackoverflow.com/questions/37771418/iterate-through-methods-and-properties-of-an-es6-class
-    const names = Object.getOwnPropertyNames(Micro.prototype);
+    const names = Object.getOwnPropertyNames(Phosphor.prototype);
     for (let name of names)
       if (/^syscall_/.test(name))
         this.syscall[name.slice(8)] = this[name];
@@ -277,86 +320,8 @@ module.exports = class Micro {
     this.sys._process = this;
   }
 
-  async reboot() {
-    this.sys._cwd = '/';
-    
-    this.mem = new Uint8Array(0x9000); // 32 KiB RAM + 4 KiB ROM
-    
-    // character rom
-    this.sys.memwrite(CRAM+32*8, CROM);
-    
-    // ui sprites
-    this.sys.memwrite(URAM+1*32, '0000000000330330003000300030003000300030003000300033033000000000');
-    this.sys.memwrite(URAM+2*32, '0000000000333300033333300303303003333330033003300033330000000000');
-    this.sys.memwrite(URAM+3*32, '0000000003300330033333300030030000300300033333300330033000000000');
-    this.sys.memwrite(URAM+4*32, '0000000000003000003030000033303000333330033333300333333000000000');
-    this.sys.memwrite(URAM+5*32, '0000000000333300003003000030030000300300033033000330330000000000');
-    
-    this.keystate = [0, 0, 0, 0]; // 32 bits each
-    
-    // TEMP graphics state (not yet in memory map)
-    this.c1 = 15; // primary color (index or undefined)
-    this.c2 = undefined; // secondary color (index or undefined)
-    this.pal = // palette map (index or undefined)
-      [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 ];
-    
-    this.VC = []; // virtual consoles
-    this.vc = this.VC; // current virtual console (temporarily not a vc)
-    this.editor = 1; // index of most recently used editor
-    this.virtualConsole(0);
-  }
-
-  virtualConsole(id, process) {
-    if (this.interval) {
-      clearInterval(this.interval);
-      delete this.interval;
-    }
-    if (this.vc.onSuspend) {
-      this.vc.onSuspend();
-    }
-    if (process) {
-      this.VC[id] = process; // TODO reparent process to _os
-    }
-    this.vc = this.VC[id];
-    if (!this.vc) {
-      this.vc = this.VC; // temporarily not a vc
-      switch (id) {
-        case 0:
-          this.vc = this.sys.spawn('terminal');
-          this.vc.write("console           type 'help' for help\n\n");
-          this.vc.setProcess(this.sys.spawn('shell'));
-          break;
-        case 1: this.vc = this.sys.spawn('code-editor'); break;
-        case 2: this.vc = this.sys.spawn('sprite-editor'); break;
-        case 3: this.vc = this.sys.spawn('map-editor'); break;
-        case 4: this.vc = this.sys.spawn('sound-editor'); break;
-        case 5: this.vc = this.sys.spawn('music-editor'); break;
-        case 8: this.vc = this.sys.spawn('breakout'); break;
-        case 9:
-          this.vc = this.sys.spawn('terminal');
-          this.vc.write('micro terminal\n\n');
-          break;
-        case 10:
-          this.vc = this.sys.spawn('terminal');
-          this.vc.write('micro shell\n\n');
-          this.vc.setProcess(this.sys.spawn('shell'));
-          break;
-      }
-      this.VC[id] = this.vc;
-    }
-    if (1 <= id && id <= 5) {
-      this.editor = id;
-    }
-    if (this.vc.onResume) {
-      this.vc.onResume();
-    }
-    if (this.vc.onUpdate) {
-      this.interval = setInterval(() => {
-        this.vc.onUpdate();
-        this.vc.onDraw();
-      }, 1000/30);
-    }
-    this.onDraw();
+  reboot() {
+    this.sys.reboot();
   }
 
   // syscall -------------------------------------------------------------------
@@ -427,6 +392,73 @@ module.exports = class Micro {
     }
   }
 
+  // TODO rename args
+  // https://en.wikipedia.org/wiki/Midpoint_circle_algorithm
+  syscall_circle(x0, y0, radius, c1, c2) {
+    const os = this._os, mem = os.mem, pal = os.pal;
+    if (c1 != undefined || c2 != undefined) {
+      os.c1 = c1;
+      os.c2 = c2;
+    } else {
+      c1 = os.c1;
+      c2 = os.c2;
+    }
+    if (c1 != undefined)
+      c1 = pal[c1];
+    if (c2 != undefined)
+      c2 = pal[c2];
+    if (c1 != undefined) {
+      var x = radius-1;
+      var y = 0;
+      var dx = 1;
+      var dy = 1;
+      var err = dx - (radius << 1);
+      while (x >= y) {
+        plotLineLow(mem, x0-y, y0-x, x0+y, y0-x, c1);
+        plotLineLow(mem, x0-x, y0-y, x0+x, y0-y, c1);
+        plotLineLow(mem, x0-x, y0+y, x0+x, y0+y, c1);
+        plotLineLow(mem, x0-y, y0+x, x0+y, y0+x, c1);
+        if (err <= 0) {
+          y++;
+          err += dy;
+          dy += 2;
+        }
+        if (err > 0) {
+          x--;
+          dx += 2;
+          err += dx - (radius << 1);
+        }
+      }
+    }
+    if (c2 != undefined) {
+      var x = radius-1;
+      var y = 0;
+      var dx = 1;
+      var dy = 1;
+      var err = dx - (radius << 1);
+      while (x >= y) {
+        pset(mem, x0-y, y0-x, c2);
+        pset(mem, x0+y, y0-x, c2);
+        pset(mem, x0-x, y0-y, c2);
+        pset(mem, x0+x, y0-y, c2);
+        pset(mem, x0-x, y0+y, c2);
+        pset(mem, x0+x, y0+y, c2);
+        pset(mem, x0-y, y0+x, c2);
+        pset(mem, x0+y, y0+x, c2);
+        if (err <= 0) {
+          y++;
+          err += dy;
+          dy += 2;
+        }
+        if (err > 0) {
+          x--;
+          dx += 2;
+          err += dx - (radius << 1);
+        }
+      }
+    }
+  }
+
   syscall_clear(c) {
     this._os.mem.fill((c<<4)|c, 0, 0x3000);
   }
@@ -452,11 +484,6 @@ module.exports = class Micro {
     this._os.bspExportFs('filesystem.json', json);
   }
 
-  syscall_gpixel(x, y, c) {
-    systrace('gpixel', this, arguments);
-    pset(this._os.mem, x, y, c);
-  }
-
   syscall_import() {
     systrace('import', this, arguments);
     this._os.bspImport();
@@ -472,13 +499,39 @@ module.exports = class Micro {
   }
 
   syscall_key(keycode) {
-    systrace('key', this, arguments);
+    //systrace('key', this, arguments);
     if (typeof keycode == 'string') {
       keycode = keycode.charCodeAt();
     }
     const i = floor(keycode/32);
     const mask = 1 << (keycode%32);
     return (this._os.keystate[i] & mask) !== 0;
+  }
+
+  // TODO change x0 x1 to x1 x2?
+  // https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
+  syscall_line(x0, y0, x1, y1, c) {
+    const os = this._os, mem = os.mem, pal = os.pal;
+    if (c != undefined) {
+      os.c1 = c;
+    } else {
+      c = os.c1;
+    }
+    if (c != undefined)
+      c = pal[c];
+    if (c == undefined)
+      return;
+    if (abs(y1 - y0) < abs(x1 - x0)) {
+      if (x0 > x1)
+        plotLineLow(mem, x1, y1, x0, y0, c);
+      else
+        plotLineLow(mem, x0, y0, x1, y1, c);
+    } else {
+      if (y0 > y1)
+        plotLineHigh(mem, x1, y1, x0, y0, c);
+      else
+        plotLineHigh(mem, x0, y0, x1, y1, c);
+    }
   }
 
   syscall_load(filename) {
@@ -528,7 +581,32 @@ module.exports = class Micro {
     const x_ = x, y_ = y;
     for (y = 0; y < h; ++y)
       for (x = 0; x < w; ++x)
-        this.spr(this.mget(x_+x, y_+y), sx+(x<<3), sy+(y<<3));
+        this.sprite(this.mget(x_+x, y_+y), sx+(x<<3), sy+(y<<3));
+  }
+
+  syscall_memcpy(dest_addr, source_addr, len) {
+    this._os.mem.copyWithin(dest_addr, source_addr, source_addr+len);
+  }
+
+  syscall_memread(addr, len) {
+    const mem = this._os.mem;
+    var str = '';
+    for (; 0 < len; --len) {
+      var b = mem[addr++];
+      str += toHex[b>>4] + toHex[b&0xf];
+    }
+    return str;
+  }
+
+  syscall_memset(dest_addr, val, len) {
+    this._os.mem.fill(val, dest_addr, dest_addr+len);
+  }
+
+  syscall_memwrite(addr, str) {
+    const mem = this._os.mem;
+    for (var i = 0, len = str.length&~1; i < len; i+=2) {
+      mem[addr++] = (fromHex[str.charAt(i)]<<4) | fromHex[str.charAt(i|1)];
+    }
   }
 
   syscall_mget(x, y) {
@@ -600,9 +678,34 @@ module.exports = class Micro {
     systrace('output', this, arguments);
   }
 
+  syscall_peek(addr) {
+    return this._os.mem[addr];
+  }
+
+  syscall_pget(x, y) {
+    return pget(this._os.mem,x, y);
+  }
+
+  syscall_poke(addr, val) {
+    this._os.mem[addr] = val;
+  }
+
   syscall_print(...args) {
     systrace('print', this, arguments);
     this.write(args.join(' ') + '\n');
+  }
+
+  syscall_pset(x, y, c) {
+    const os = this._os, mem = os.mem, pal = os.pal;
+    if (c != undefined) {
+      os.c1 = c;
+    } else {
+      c = os.c1;
+    }
+    if (c != undefined)
+      c = pal[c];
+    if (c != undefined)
+      pset(mem, x, y, c);
   }
 
   // read ([handle,] fmt)
@@ -623,7 +726,26 @@ module.exports = class Micro {
 
   syscall_reboot() {
     systrace('reboot', this, arguments);
-    this._os.reboot();
+    
+    const os = this._os;
+    
+    os.mem.fill(0, 0, CRAM);
+    os.sys.memwrite(CRAM+32*8, CROM);
+    
+    os.sys._cwd = '/';
+    
+    os.keystate = [0, 0, 0, 0]; // 32 bits each
+    
+    // TEMP graphics state (not yet in memory map)
+    os.c1 = 15; // primary color (index or undefined)
+    os.c2 = undefined; // secondary color (index or undefined)
+    os.pal = // palette map (index or undefined)
+      [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 ];
+    
+    os.VC = []; // virtual consoles
+    os.vc = os.VC; // current virtual console (temporarily not a vc)
+    os.editor = 1; // index of most recently used editor
+    this.vc(0);
   }
 
   syscall_rect(x, y, w, h, c1, c2) {
@@ -782,7 +904,7 @@ module.exports = class Micro {
     return process;
   }
 
-  syscall_spr(n, x, y) {
+  syscall_sprite(n, x, y) {
     const mem = this._os.mem;
     var a = SRAM+(n<<5), b;
     for (let Y = y+8; y < Y; ++y) {
@@ -808,40 +930,60 @@ module.exports = class Micro {
     }
   }
 
-  syscall_uget(n, x, y) {
-    const mem = this._os.mem;
-    const a = URAM+(n<<5)+(y<<2)+(x>>1), s = (x&1)<<2;
-    const b = mem[a];
-    return (b>>s)&0xf;
-  }
-
-  syscall_uset(n, x, y, c) {
-    const mem = this._os.mem;
-    const a = URAM+(n<<5)+(y<<2)+(x>>1), s = (x&1)<<2;
-    const b = mem[a];
-    mem[a] = (b&(0xf0>>s)) | (c<<s);
-  }
-
-  syscall_uspr(n, x, y) {
-    const mem = this._os.mem;
-    var a = URAM+(n<<5), b, c;
-    for (let Y = y+8; y < Y; ++y) {
-      for (var j = 0; j < 8; j+=2) {
-        b = mem[a++];
-        c = b&0xf;
-        if (c != 0)
-          pset(mem, x+j, y, c);
-        c = b>>4;
-        if (c != 0)
-          pset(mem, x+j+1, y, c);
-      }
-    }
-  }
-
   // Equivalent of linux openvt/chvt (TODO improve API)
   syscall_vc(id, process) {
     systrace('vc', this, arguments);
-    this._os.virtualConsole(id, process);
+    const os = this._os;
+    if (os.interval) {
+      clearInterval(os.interval);
+      delete os.interval;
+    }
+    if (os.vc.onSuspend) {
+      os.vc.onSuspend();
+    }
+    if (process) {
+      os.VC[id] = process; // TODO reparent process to _os
+    }
+    os.vc = os.VC[id];
+    if (!os.vc) {
+      os.vc = os.VC; // temporarily not a vc
+      switch (id) {
+        case 0:
+          os.vc = this.spawn('terminal');
+          os.vc.write("console           type 'help' for help\n\n");
+          os.vc.setProcess(this.spawn('shell'));
+          break;
+        case 1: os.vc = this.spawn('code-editor'); break;
+        case 2: os.vc = this.spawn('sprite-editor'); break;
+        case 3: os.vc = this.spawn('map-editor'); break;
+        case 4: os.vc = this.spawn('sound-editor'); break;
+        case 5: os.vc = this.spawn('music-editor'); break;
+        case 8: os.vc = this.spawn('breakout'); break;
+        case 9:
+          os.vc = this.spawn('terminal');
+          os.vc.write('micro terminal\n\n');
+          break;
+        case 10:
+          os.vc = this.spawn('terminal');
+          os.vc.write('micro shell\n\n');
+          os.vc.setProcess(this.spawn('shell'));
+          break;
+      }
+      os.VC[id] = os.vc;
+    }
+    if (1 <= id && id <= 5) {
+      os.editor = id;
+    }
+    if (os.vc.onResume) {
+      os.vc.onResume();
+    }
+    if (os.vc.onUpdate) {
+      os.interval = setInterval(() => {
+        os.vc.onUpdate();
+        os.vc.onDraw();
+      }, 1000/30);
+    }
+    os.onDraw();
   }
 
   // write ([fd,] ...)
@@ -859,41 +1001,6 @@ module.exports = class Micro {
     } else {
       return fileWrite(handle, ...args);
     }
-  }
-
-  // memory --------------------------------------------------------------------
-
-  syscall_memcpy(dest_addr, source_addr, len) {
-    this._os.mem.copyWithin(dest_addr, source_addr, source_addr+len);
-  }
-
-  syscall_memread(addr, len) {
-    const mem = this._os.mem;
-    var str = '';
-    for (; 0 < len; --len) {
-      var b = mem[addr++];
-      str += toHex[b>>4] + toHex[b&0xf];
-    }
-    return str;
-  }
-
-  syscall_memset(dest_addr, val, len) {
-    this._os.mem.fill(val, dest_addr, dest_addr+len);
-  }
-
-  syscall_memwrite(addr, str) {
-    const mem = this._os.mem;
-    for (var i = 0, len = str.length&~1; i < len; i+=2) {
-      mem[addr++] = (fromHex[str.charAt(i)]<<4) | fromHex[str.charAt(i|1)];
-    }
-  }
-
-  syscall_peek(addr) {
-    return this._os.mem[addr];
-  }
-
-  syscall_poke(addr, val) {
-    this._os.mem[addr] = val;
   }
 
   // ---------------------------------------------------------------------------
@@ -931,32 +1038,32 @@ module.exports = class Micro {
     if (e.ctrlKey) {
       if (!e.altKey && !e.metaKey && !e.shiftKey) {
         if (e.code == 'Backquote') {
-          this.virtualConsole(0); e.preventDefault(); return;
+          this.sys.vc(0); e.preventDefault(); return;
         } else if (e.code == 'Digit1') {
-          this.virtualConsole(1); e.preventDefault(); return;
+          this.sys.vc(1); e.preventDefault(); return;
         } else if (e.code == 'Digit2') {
-          this.virtualConsole(2); e.preventDefault(); return;
+          this.sys.vc(2); e.preventDefault(); return;
         } else if (e.code == 'Digit3') {
-          this.virtualConsole(3); e.preventDefault(); return;
+          this.sys.vc(3); e.preventDefault(); return;
         } else if (e.code == 'Digit4') {
-          this.virtualConsole(4); e.preventDefault(); return;
+          this.sys.vc(4); e.preventDefault(); return;
         } else if (e.code == 'Digit5') {
-          this.virtualConsole(5); e.preventDefault(); return;
+          this.sys.vc(5); e.preventDefault(); return;
         } else if (e.code == 'Digit7') {
-          this.virtualConsole(7); e.preventDefault(); return;
+          this.sys.vc(7); e.preventDefault(); return;
         } else if (e.code == 'Digit8') {
-          this.virtualConsole(8); e.preventDefault(); return;
+          this.sys.vc(8); e.preventDefault(); return;
         } else if (e.code == 'Digit9') {
-          this.virtualConsole(9); e.preventDefault(); return;
+          this.sys.vc(9); e.preventDefault(); return;
         } else if (e.code == 'Digit0') {
-          this.virtualConsole(10); e.preventDefault(); return;
+          this.sys.vc(10); e.preventDefault(); return;
         }
       }
       this.onDraw();
       return;
     }
     if (e.key == 'Escape') {
-      this.virtualConsole(this.vc == this.VC[0] ? this.editor : 0);
+      this.sys.vc(this.vc == this.VC[0] ? this.editor : 0);
       e.preventDefault();
       this.onDraw();
       return;
@@ -1023,15 +1130,7 @@ module.exports = class Micro {
 
   bspImportFs() {console.log('bspImportFs')}
 
-  bspScreenChar(ch, x, y, fg, bg) {console.log('bspScreenChar')}
-
-  bspScreenClear(c) {console.log('bspScreenClear')}
-
-  bspScreenPixel(x, y, c) {console.log('bspScreenPixel')}
-
-  bspScreenRect(x, y, w, h, c) {console.log('bspScreenRect')}
-
-  bspScreenRectO(x, y, w, h, c) {console.log('bspScreenRectO')}
+  bspScreenFlip(mem) {console.log('bspScreenFlip')}
 
   bspScreenScale(scale) {console.log('bspScreenScale')}
 

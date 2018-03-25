@@ -1,5 +1,5 @@
-// Simple computer
-// Marc Lepage Fall 2017
+// Phosphor - a browser-based microcomputer
+// Copyright (c) 2017-2018 Marc Lepage
 
 'use strict';
 
@@ -90,7 +90,7 @@ module.exports = class MapEditor {
           var n = sheetY*sheetW+sheetX;
           for (var y = 0; y < sheetH; ++y)
             for (var x = 0; x < sheetW; ++x, ++n)
-              sys.spr(n, this.x+(x<<3), this.y+(y<<3));
+              sys.sprite(n, this.x+(x<<3), this.y+(y<<3));
           // empty sprites
           if (n > 256)
             sys.rect(this.x+this.w-((n-256)<<3), this.y+this.h-8, (n-256)<<3, 8, 0)

@@ -1,9 +1,9 @@
-// Simple computer
-// Marc Lepage Fall 2017
+// Phosphor - a browser-based microcomputer
+// Copyright (c) 2017-2018 Marc Lepage
 
 'use strict';
 
-const pos = require('pos');
+const pos = require('./pos');
 
 module.exports = class TextBuffer {
 

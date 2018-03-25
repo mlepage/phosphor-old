@@ -1,5 +1,5 @@
-// Simple computer
-// Marc Lepage Winter 2018
+// Phosphor - a browser-based microcomputer
+// Copyright (c) 2018 Marc Lepage
 
 'use strict';
 

@@ -1,5 +1,5 @@
-// Simple computer
-// Marc Lepage, Fall 2017
+// Phosphor - a browser-based microcomputer
+// Copyright (c) 2017-2018 Marc Lepage
 
 'use strict';
 
@@ -7,90 +7,101 @@ const luavm = require('./luavm.js');
 
 const init = `
 do
+  local g = js.global
   local jsnull = js.null
-
+  
   local concat = table.concat
   local yield = coroutine.yield
   
-  local sys_char = js.global.__sys_char
+  local sys_char = g.__sys_char
   function char(...)
     sys_char(nil, ...)
   end
   
-  local sys_clear = js.global.__sys_clear
+  local sys_circle = g.__sys_circle
+  function circle(...)
+    sys_circle(nil, ...)
+  end
+  
+  local sys_clear = g.__sys_clear
   function clear(...)
     sys_clear(nil, ...)
   end
   
-  local sys_key = js.global.__sys_key
+  local sys_key = g.__sys_key
   function key(...)
     return sys_key(nil, ...)
   end
   
+  local sys_line = g.__sys_line
+  function line(...)
+    return sys_line(nil, ...)
+  end
+  
   log = print
   
-  --local sys_pal = js.global.__sys_pal
+  local sys_map = g.__sys_map
+  function map(...)
+    sys_map(nil, ...)
+  end
+  
+  local sys_mget = g.__sys_mget
+  function mget(...)
+    return sys_mget(nil, ...)
+  end
+  
+  local sys_mset = g.__sys_mset
+  function mset(...)
+    sys_mset(nil, ...)
+  end
+  
+  --local sys_pal = g.__sys_pal
   --function pal(...)
   --  sys_pal(nil, ...)
   --end
   
-  --local sys_pget = js.global.__sys_pget
-  --function pget(...)
-  --  sys_pget(nil, ...)
-  --end
+  local sys_pget = g.__sys_pget
+  function pget(...)
+    sys_pget(nil, ...)
+  end
   
   -- TODO not the best impl, handle table, etc.
-  local sys_write = js.global.__sys_write
+  local sys_write = g.__sys_write
   function print(...)
     sys_write(nil, concat({...}, ' '), '\\n')
   end
-
-  --local sys_pset = js.global.__sys_pset
-  --function pset(...)
-  --  sys_pset(nil, ...)
-  --end
-
-  local sys_map = js.global.__sys_map
-  function map(...)
-    sys_map(nil, ...)
-  end
-
-  local sys_mget = js.global.__sys_mget
-  function mget(...)
-    return sys_mget(nil, ...)
-  end
-
-  local sys_mset = js.global.__sys_mset
-  function mset(...)
-    sys_mset(nil, ...)
-  end
- 
-  function read(...)
-    yield()
-    return js.global.__lua_read
+  
+  local sys_pset = g.__sys_pset
+  function pset(...)
+    sys_pset(nil, ...)
   end
   
-  local sys_rect = js.global.__sys_rect
+  function read(...)
+    yield()
+    return g.__lua_read
+  end
+  
+  local sys_rect = g.__sys_rect
   function rect(...)
     sys_rect(nil, ...)
   end
   
-  local sys_sget = js.global.__sys_sget
+  local sys_sget = g.__sys_sget
   function sget(...)
     return sys_sget(nil, ...)
   end
   
-  local sys_spr = js.global.__sys_spr
-  function spr(...)
-    sys_spr(nil, ...)
+  local sys_sprite = g.__sys_sprite
+  function sprite(...)
+    sys_sprite(nil, ...)
   end
   
-  local sys_sset = js.global.__sys_sset
+  local sys_sset = g.__sys_sset
   function sset(...)
     sys_sset(nil, ...)
   end
   
-  local sys_text = js.global.__sys_text
+  local sys_text = g.__sys_text
   function text(...)
     sys_text(nil, ...)
   end
@@ -103,41 +114,46 @@ end`;
 module.exports = class Lua {
 
   async main(...args) {
+    const sys = this.sys;
     this.L = new luavm.Lua.State();
-    window.__sys_char = this.sys.char.bind(this.sys);
-    window.__sys_clear = this.sys.clear.bind(this.sys);
-    window.__sys_key = this.sys.key.bind(this.sys);
-    //window.__sys_pal = this.sys.pal.bind(this.sys);
-    //window.__sys_pget = this.sys.pget.bind(this.sys);
-    //window.__sys_pset = this.sys.pset.bind(this.sys);
-    window.__sys_map = this.sys.map.bind(this.sys);
-    window.__sys_mget = this.sys.mget.bind(this.sys);
-    window.__sys_mset = this.sys.mset.bind(this.sys);
-    window.__sys_rect = this.sys.rect.bind(this.sys);
-    window.__sys_sget = this.sys.sget.bind(this.sys);
-    window.__sys_spr = this.sys.spr.bind(this.sys);
-    window.__sys_sset = this.sys.sset.bind(this.sys);
-    window.__sys_text = this.sys.text.bind(this.sys);
-    window.__sys_write = this.sys.write.bind(this.sys);
+    window.__sys_char = sys.char.bind(sys);
+    window.__sys_circle = sys.circle.bind(sys);
+    window.__sys_clear = sys.clear.bind(sys);
+    window.__sys_key = sys.key.bind(sys);
+    window.__sys_line = sys.line.bind(sys);
+    window.__sys_map = sys.map.bind(sys);
+    window.__sys_mget = sys.mget.bind(sys);
+    window.__sys_mset = sys.mset.bind(sys);
+    //window.__sys_pal = sys.pal.bind(sys);
+    window.__sys_pget = sys.pget.bind(sys);
+    window.__sys_pset = sys.pset.bind(sys);
+    window.__sys_rect = sys.rect.bind(sys);
+    window.__sys_sget = sys.sget.bind(sys);
+    window.__sys_sprite = sys.sprite.bind(sys);
+    window.__sys_sset = sys.sset.bind(sys);
+    window.__sys_text = sys.text.bind(sys);
+    window.__sys_write = sys.write.bind(sys);
     this.L.execute(init);
     delete window.__sys_char;
+    delete window.__sys_circle;
     delete window.__sys_clear;
     delete window.__sys_key;
-    //delete window.__sys_pal;
-    //delete window.__sys_pget;
-    //delete window.__sys_pset;
+    delete window.__sys_line;
     delete window.__sys_map;
     delete window.__sys_mget;
     delete window.__sys_mset;
+    //delete window.__sys_pal;
+    delete window.__sys_pget;
+    delete window.__sys_pset;
     delete window.__sys_rect;
     delete window.__sys_sget;
-    delete window.__sys_spr;
+    delete window.__sys_sprite;
     delete window.__sys_sset;
     delete window.__sys_text;
     delete window.__sys_write;
     
     // HACK to choose code to run
-    var code = this.sys._os.filesystem[`phosphor:/${args[1]}`];
+    var code = sys._os.filesystem[`phosphor:/${args[1]}`];
     if (!code)
       code = window.program_code;
     if (!code)
@@ -160,7 +176,7 @@ module.exports = class Lua {
         break;
       }
       // TODO assuming read, need to pass on args
-      window.__lua_read = await this.sys.read();
+      window.__lua_read = await sys.read();
     }
   }
 

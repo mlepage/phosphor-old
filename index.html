@@ -7,11 +7,16 @@
 <!-- https://pixelsvsbytes.com/2013/02/js-require-for-browsers-better-faster-stronger/ -->
 <script src='require.min.js'></script>
 
-<script src='page-bsp.js'></script>
+<scriptx src='page-bsp.js'></scriptx>
+<script>
+  const bsp = Tarp.require('./bsp.js');
+  const phosphor = bsp.newPhosphor();
+  phosphor.reboot();
+</script>
 
 <h1>Phosphor Microcomputer (Under Construction)</h1>
 
-<p>A simple browser-based microcomputer, inspired by:</p>
+<p>A browser-based microcomputer inspired by:</p>
 
 <ul>
   <li>Commodore 64 (BASIC programming language and games)</li>
@@ -70,16 +75,25 @@ end
 <p>These graphics syscalls work as expected:</p>
 
 <pre>
-clear(c)
-char(ch, x, y, c1, c2)
-text(str, x, y, c1, c2)
-rect(x, y, w, h, c1, c2)
-spr(n, x, y)
-sset(n, x, y, c)
-sget(n, x, y)
-map(screenx, screeny, x, y, w, h)
-mset(x, y, n)
-mget(x, y)
+clear(c) -- clear screen
+
+pget(x, y) -- get pixel at x,y
+pset(x, y, c) -- set pixel at x,y
+
+line(x1, y1, x2, y2, c) -- draw line from x1,y1 to x2,y2
+rect(x, y, w, h, c1, c2) -- draw rect at x,y with size w,h
+circle(x, y, r, c1, c2) -- draw circle at x,y with radius r
+
+char(ch, x, y, c1, c2) -- draw char ch at x,y
+text(str, x, y, c1, c2) -- draw string str at x,y
+
+sprite(n, x, y) -- draw sprite n at x,y
+sget(n, x, y) -- get pixel from sprite n
+sset(n, x, y, c) -- set pixel in sprite n
+
+map(x, y, mx, my, mw, mh) -- draw map (cells at mx,my size mw,mh) at x,y
+mget(x, y) -- get map value at cell x,y
+mset(x, y, n) -- set map value at cell x,y
 </pre>
 
 <p>Input, for printable ASCII keys only (e.g. 'y' or 'n' but not cursor or shift), can be obtained like:</p>
@@ -93,6 +107,16 @@ end
 <p>Please note that at this point, nothing finalized, everything is subject to change.</p>
 
 <h1>Changelog</h1>
+
+<h2>2018-03-24</h2>
+
+<pre>
+- rename syscall: spr to sprite
+- add graphics syscalls: pget, pset, line, circle
+- remove ui sprite syscalls: uget, uset, uspr
+- apply MIT license
+- code cleanup
+</pre>
 
 <h2>2018-03-20</h2>
 

@@ -1,9 +1,9 @@
-// Simple computer
-// Marc Lepage, Fall 2017
+// Phosphor - a browser-based microcomputer
+// Copyright (c) 2017-2018 Marc Lepage
 
 'use strict';
 
-const Micro = require('./micro.js');
+const Phosphor = require('./phosphor.js');
 
 const round = Math.round;
 
@@ -241,8 +241,8 @@ function wheel(e) {
 
 module.exports = {
 
-  newMicro() {
-    const micro = new Micro();
+  newPhosphor() {
+    const micro = new Phosphor();
     
     const canvas = document.createElement('canvas');
     const scale = 4; // TODO get scale from micro
