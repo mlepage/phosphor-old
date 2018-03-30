@@ -47,13 +47,7 @@ print('Hello', name)
 <p>Type 'load bounce' then 'run' to load and run this simple demo graphics program:</p>
 
 <pre>
--- hello (demo)
-write('What is your name? ')
-name = read()
-print('Hello', name)
-`;
-
-const demoBounce = `-- bounce (demo)
+-- bounce (demo)
 r,d = 4,8
 x,y = 96,64
 dx,dy = 2,1
@@ -99,14 +93,24 @@ mset(x, y, n) -- set map value at cell x,y
 <p>Input, for printable ASCII keys only (e.g. 'y' or 'n' but not cursor or shift), can be obtained like:</p>
 
 <pre>
-if key('y') then
-  -- y (case sensitive) pressed this frame
-end
+keyp('y') -- true the first frame key 'y' is pressed
+keyr('y') -- true the first frame key 'y' is released
+key('y') -- true all frames key 'y' is being pressed
+key('y', delay, rate) -- true if key 'y' is repeating, which occurs:
+    -- first frame, after delay frames, then every rate frames)
 </pre>
 
 <p>Please note that at this point, nothing finalized, everything is subject to change.</p>
 
 <h1>Changelog</h1>
+
+<h2>2018-03-29</h2>
+
+<pre>
+- add input syscalls: keyp, keyr
+- add repeat delay and rate to key syscall
+- disable reboot syscall for now
+</pre>
 
 <h2>2018-03-24</h2>
 

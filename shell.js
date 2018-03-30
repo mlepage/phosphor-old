@@ -17,7 +17,6 @@ import   - load file from host
 exportfs - save filesystem to host
 importfs - load filesystem from host
 scale    - change host scale factor
-reboot   - reboot computer
 
 ESC      - toggle console/editor
 CTRL+0   - console (command line)
@@ -132,10 +131,12 @@ module.exports = class Shell {
     this.sys.write(result ? 'file moved' : 'cannot move file', '\n');
   }
 
+/* TODO disabled for now (dangerous when using window global)
   async builtin_reboot(...args) {
     this.exit = true;
     this.sys.reboot();
   }
+*/
 
   async builtin_rm(...args) {
     args.shift();

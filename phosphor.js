@@ -498,14 +498,28 @@ module.exports = class Phosphor {
     systrace('input', this, arguments);
   }
 
-  syscall_key(keycode) {
-    //systrace('key', this, arguments);
-    if (typeof keycode == 'string') {
+  syscall_key(keycode, delay, rate) {
+    if (typeof keycode == 'string')
       keycode = keycode.charCodeAt();
-    }
-    const i = floor(keycode/32);
-    const mask = 1 << (keycode%32);
-    return (this._os.keystate[i] & mask) !== 0;
+    var k = this._os.keyp[keycode];
+    if (k === undefined)
+      return false;
+    else if (delay === undefined || rate === undefined)
+      return true;
+    k = this._os.frame-k;
+    return k == 0 || (k>=delay && ((k-delay)%rate == 0));
+  }
+
+  syscall_keyp(keycode) {
+    if (typeof keycode == 'string')
+      keycode = keycode.charCodeAt();
+    return this._os.keyp[keycode] === 0;
+  }
+
+  syscall_keyr(keycode) {
+    if (typeof keycode == 'string')
+      keycode = keycode.charCodeAt();
+    return this._os.keyr[keycode] !== undefined;
   }
 
   // TODO change x0 x1 to x1 x2?
@@ -734,7 +748,8 @@ module.exports = class Phosphor {
     
     os.sys._cwd = '/';
     
-    os.keystate = [0, 0, 0, 0]; // 32 bits each
+    os.keyp = []; // keys pressed (key is char code, value is frame time)
+    os.keyr = []; // keys released (key is char code, value is true, for one frame)
     
     // TEMP graphics state (not yet in memory map)
     os.c1 = 15; // primary color (index or undefined)
@@ -978,12 +993,20 @@ module.exports = class Phosphor {
       os.vc.onResume();
     }
     if (os.vc.onUpdate) {
+      os.frame = 0;
+      os.vc.onUpdate();
+      os.vc.onDraw();
+      os.frame++;
       os.interval = setInterval(() => {
         os.vc.onUpdate();
         os.vc.onDraw();
+        os.frame++;
+        if (os.keyr.length != 0)
+          os.keyr = []; // TODO performance
       }, 1000/30);
+    } else {
+      os.onDraw();
     }
-    os.onDraw();
   }
 
   // write ([fd,] ...)
@@ -1068,11 +1091,9 @@ module.exports = class Phosphor {
       this.onDraw();
       return;
     }
-    if (e.key.length == 1) {
+    if (e.key.length == 1 && !e.repeat) {
       const keycode = e.key.charCodeAt();
-      const i = floor(keycode/32);
-      const mask = 1 << (keycode%32);
-      this.keystate[i] |= mask;
+      this.keyp[keycode] = this.frame;
     }
     if (this.vc.onKeyDown) this.vc.onKeyDown(e);
     e.preventDefault();
@@ -1082,9 +1103,8 @@ module.exports = class Phosphor {
   onKeyUp(e) {
     if (e.key.length == 1) {
       const keycode = e.key.charCodeAt();
-      const i = floor(keycode/32);
-      const mask = 1 << (keycode%32);
-      this.keystate[i] &= ~mask;
+      delete this.keyp[keycode];
+      this.keyr[keycode] = true;
     }
   }
 
