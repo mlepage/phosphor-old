@@ -203,7 +203,7 @@ function touchCancel(e) {
 function touchEnd(e) {
   e.preventDefault();
   const rect = e.target.getBoundingClientRect();
-  const e2 = this.bsp_eTouchEnd = this.bsp_eTouchEnd || { buttons: 1 };
+  const e2 = this.bsp_eTouch = this.bsp_eTouch || { buttons: 1 };
   e2.x = round((e.changedTouches[0].clientX - rect.left) / this.bsp_scale);
   e2.y = round((e.changedTouches[0].clientY - rect.top) / this.bsp_scale);
   this.onMouseUp(e2);
@@ -212,7 +212,7 @@ function touchEnd(e) {
 function touchMove(e) {
   e.preventDefault();
   const rect = e.target.getBoundingClientRect();
-  const e2 = this.bsp_eTouchMove = this.bsp_eTouchMove || { buttons: 1 };
+  const e2 = this.bsp_eTouch = this.bsp_eTouch || { buttons: 1 };
   e2.x = round((e.touches[0].clientX - rect.left) / this.bsp_scale);
   e2.y = round((e.touches[0].clientY - rect.top) / this.bsp_scale);
   this.onMouseMove(e2);
@@ -221,7 +221,7 @@ function touchMove(e) {
 function touchStart(e) {
   e.preventDefault();
   const rect = e.target.getBoundingClientRect();
-  const e2 = this.bsp_eTouchStart = this.bsp_eTouchStart || {};
+  const e2 = this.bsp_eTouch = this.bsp_eTouch || {};
   e2.x = round((e.touches[0].clientX - rect.left) / this.bsp_scale);
   e2.y = round((e.touches[0].clientY - rect.top) / this.bsp_scale);
   this.onMouseDown(e2);
@@ -229,14 +229,13 @@ function touchStart(e) {
 
 function wheel(e) {
   e.preventDefault();
-  // TODO reuse object for event
   const rect = e.target.getBoundingClientRect();
-  this.onWheel({
-    x: round((e.clientX - rect.left) / this.bsp_scale),
-    y: round((e.clientY - rect.top) / this.bsp_scale),
-    deltaX: e.deltaX / this.bsp_scale,
-    deltaY: e.deltaY / this.bsp_scale,
-  });
+  const e2 = this.bsp_eWheel = this.bsp_eWheel || {};
+  e2.x = round((e.clientX - rect.left) / this.bsp_scale),
+  e2.y = round((e.clientY - rect.top) / this.bsp_scale),
+  e2.deltaX = e.deltaX / this.bsp_scale,
+  e2.deltaY =  e.deltaY / this.bsp_scale,
+  this.onWheel(e2);
 }
 
 module.exports = {
@@ -333,12 +332,17 @@ module.exports = {
     micro.bspScreenRectO = screenRectO;
     micro.bspScreenScale = screenScale;
     
+    document.addEventListener('copy', micro.onCopy.bind(micro));
+    document.addEventListener('cut', micro.onCut.bind(micro));
+    document.addEventListener('paste', micro.onPaste.bind(micro));
+    
     canvas.addEventListener('keydown', micro.onKeyDown.bind(micro));
     canvas.addEventListener('keyup', micro.onKeyUp.bind(micro));
     canvas.addEventListener('click', mouseClick.bind(micro));
     canvas.addEventListener('mousedown', mouseDown.bind(micro));
     canvas.addEventListener('mousemove', mouseMove.bind(micro));
     canvas.addEventListener('mouseup', mouseUp.bind(micro));
+    //canvas.addEventListener('paste', micro.onPaste.bind(micro));
     canvas.addEventListener('touchstart', touchStart.bind(micro));
     canvas.addEventListener('touchmove', touchMove.bind(micro));
     canvas.addEventListener('touchend', touchEnd.bind(micro));

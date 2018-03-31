@@ -13,8 +13,16 @@ module.exports = class TextBuffer {
     this.nextMarkerId = 0;
   }
 
-  getText() {
-    return this.lines.join('\n'); // TODO memoize?
+  getText(l0, c0, l1, c1) {
+    if (l0 == null)
+      return this.lines.join('\n'); // TODO memoize?
+    if (l0 == l1)
+      return this.lines[l0].slice(c0, c1);
+    var str = this.lines[l0].slice(c0);
+    for (var l = l0+1; l < l1; ++l)
+      str += '\n' + this.lines[l];
+    str += '\n' + this.lines[l1].slice(0, c1);
+    return str;
   }
 
   getLines() {
@@ -79,13 +87,13 @@ module.exports = class TextBuffer {
     return pos[0] != pos0 || pos[1] != pos1;
   }
 
-  setText(range, text) {
-    const r0 = range[0][0], c0 = range[0][1];
-    const r1 = range[1][0], c1 = range[1][1];
+  // Returns number of new lines created
+  setText(r0, c0, r1, c1, text) {
     const n = 1 + r1 - r0;
     const prefix = this.lines[r0].slice(0, c0);
     const suffix = this.lines[r1].slice(c1);
     const lines = text.split('\n');
+    const r = lines.length-1;
     this.lines.splice(r0, n-lines.length);
     for (var i = lines.length-n; i > 0; --i) {
       this.lines.splice(r0, 0, null);
@@ -98,6 +106,7 @@ module.exports = class TextBuffer {
     for (const marker of this.markers) {
       // TODO
     }
+    return r;
   }
 
   append(text) {

@@ -314,7 +314,7 @@ module.exports = class Terminal {
     }
   }
 
-  onMouseWheel(e) {
+  onWheel(e) {
     if (e.deltaY <= -1)
       this.scrollUp();
     else if (e.deltaY >= 1)

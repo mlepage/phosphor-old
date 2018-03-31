@@ -6,57 +6,223 @@
 const Buffer = require('./buffer.js');
 const Ui = require('./ui.js');
 
+const floor = Math.floor;
 const max = Math.max, min = Math.min;
-
-// Does a range contain a position?
-function contains(start, end, pos) {
-  return (start[0] < pos[0] || start[0] == pos[0] && start[1] <= pos[1])
-      && (pos[0] < end[0] || pos[0] == end[0] && pos[1] < end[1]);
-}
-
-function containsrc(start, end, r, c) {
-  return (start[0] < r || start[0] == r && start[1] <= c)
-      && (r < end[0] || r == end[0] && c < end[1]);
-}
-
-function order(a, b) {
-  if (poscmp(a, b) > 0) swap(a, b);
-}
-
-// Compare two positions
-function poscmp(a, b) {
-  return a[0] == b[0] ? a[1] - b[1] : a[0] - b[0];
-}
-
-function swap(a, b) {
-  var tmp = a[0]; a[0] = b[0]; b[0] = tmp;
-  tmp = a[1]; a[1] = b[1]; b[1] = tmp;
-}
-
-// Value or default (if undefined)
-function val(val, def) {
-  return (val !== undefined) ? val : def;
-}
 
 module.exports = class CodeEditor {
 
   main() {
     const sys = this.sys;
     
+    const buffer = new Buffer(window.program_code);
+    var scrollL = 0, scrollC = 0; // scroll position
+    var cursorL = 0, cursorC = 0; // cursor position
+    var selectL = 0, selectC = 0; // selection position (if active)
+    var select = false; // whether selection is active
+    var targetC = 0; // target column for vertical cursor navigation
+    
     this.handle = window.program_handle;
-    this.buffer = new Buffer(window.program_code);
-    this.scroll = [0, 0]; // scroll position (zero-based index of top left char)
-    this.cursor = [0, 0]; // cursor position (zero-based index of cursor)
-    this.select = null; // select position (or null)
-    this.column = 0; // desired column (for vertical cursor navigation)
+    this.buffer = buffer;
+    this.reset = reset;
+    
+    function arrowDown(shift) {
+      if (shift && !select)
+        selectL = cursorL, selectC = cursorC;
+      select = shift;
+      const maxL = buffer.getLineCount()-1;
+      if (cursorL < maxL)
+        ++cursorL, cursorC = min(targetC, buffer.getLine(cursorL).length);
+      else if (cursorC < buffer.getLine(maxL).length)
+        cursorC = buffer.getLine(maxL).length;
+      else {
+        sys.beep();
+        return;
+      }
+      scrollToCursor();
+    }
+    
+    function arrowLeft(shift) {
+      if (shift && !select)
+        selectL = cursorL, selectC = cursorC;
+      select = shift;
+      if (0 < cursorC)
+        --cursorC;
+      else if (0 < cursorL)
+        --cursorL, cursorC = buffer.getLine(cursorL).length;
+      else {
+        sys.beep();
+        return;
+      }
+      targetC = cursorC;
+      scrollToCursor();
+    }
+    
+    function arrowRight(shift) {
+      if (shift && !select)
+        selectL = cursorL, selectC = cursorC;
+      select = shift;
+      if (cursorC < buffer.getLine(cursorL).length)
+        ++cursorC;
+      else if (cursorL < buffer.getLineCount()-1)
+        ++cursorL, cursorC = 0;
+      else {
+        sys.beep();
+        return;
+      }
+      targetC = cursorC;
+      scrollToCursor();
+    }
+    
+    function arrowUp(shift) {
+      if (shift && !select)
+        selectL = cursorL, selectC = cursorC;
+      select = shift;
+      if (0 < cursorL)
+        --cursorL, cursorC = min(targetC, buffer.getLine(cursorL).length);
+      else if (0 < cursorC)
+        cursorC = 0;
+      else {
+        sys.beep();
+        return;
+      }
+      scrollToCursor();
+    }
+    
+    function backspace() {
+      var l0, c0, l1, c1;
+      if (select)
+        if (selectL < cursorL || selectL == cursorL && selectC <= cursorC)
+          l0 = selectL, c0 = selectC, l1 = cursorL, c1 = cursorC;
+        else
+          l0 = cursorL, c0 = cursorC, l1 = selectL, c1 = selectC;
+      else if (0 < cursorC)
+        l0 = l1 = cursorL, c0 = cursorC-1, c1 = cursorC;
+      else if (0 < cursorL)
+        l0 = cursorL-1, c0 = buffer.getLine(l0).length, l1 = cursorL, c1 = cursorC;
+      else {
+        sys.beep();
+        return;
+      }
+      buffer.setText(l0, c0, l1, c1, '');
+      cursorL = l0, cursorC = targetC = c0, select = false;
+      scrollToCursor();
+    }
+    
+    function insert(text) {
+      var l0, c0, l1, c1;
+      if (select)
+        if (selectL < cursorL || selectL == cursorL && selectC <= cursorC)
+          l0 = selectL, c0 = selectC, l1 = cursorL, c1 = cursorC;
+        else
+          l0 = cursorL, c0 = cursorC, l1 = selectL, c1 = selectC;
+      else
+        l0 = l1 = cursorL, c0 = c1 = cursorC;
+      const n = buffer.setText(l0, c0, l1, c1, text);
+      cursorL = l0+n;
+      cursorC = targetC = (n > 0) ? text.length-text.lastIndexOf('\n')-1 : c0+text.length;
+      select = false;
+      scrollToCursor();
+    }
+    
+    function reset(text) {
+      const maxL = buffer.getLineCount()-1;
+      buffer.setText(0, 0, maxL, buffer.getLine(maxL).length, text);
+      scrollL = scrollC = cursorL = cursorC = selectL = selectC = targetC = 0;
+      select = false;
+    }
+    
+    function scrollToCursor() {
+      scrollL = max(cursorL-15, min(scrollL, cursorL));
+      scrollC = max(cursorC-36, min(scrollC, max(cursorC-4, 0)));
+    }
     
     const ui = new Ui([
       { // bg
         x: 0, y: 0, w: 192, h: 128,
         onDraw() {
-          //sys.clear(3);
+          sys.clear(3);
           sys.rect(0, 0, 192, 7, 11);
           sys.rect(0, 121, 192, 7, 11);
+          sys.text(`${1+cursorL}:${1+cursorC}`, 0, 121, 5);
+        },
+      },
+      { // text
+        x: 0, y: 7, w: 192, h: 114, name: 'text',
+        onCopy(e) {
+          if (!select) {
+            e.clipboardData.setData('text/plain', '');
+            return;
+          }
+          var l0, c0, l1, c1;
+          if (selectL < cursorL || selectL == cursorL && selectC <= cursorC)
+            l0 = selectL, c0 = selectC, l1 = cursorL, c1 = cursorC;
+          else
+            l0 = cursorL, c0 = cursorC, l1 = selectL, c1 = selectC;
+          const text = buffer.getText(l0, c0, l1, c1);
+          e.clipboardData.setData('text/plain', text);
+        },
+        onCut(e) {
+          this.onCopy(e);
+          if (select)
+            backspace();
+        },
+        onDraw() {
+          var l0, c0, l1, c1;
+          if (select)
+            if (selectL < cursorL || selectL == cursorL && selectC <= cursorC)
+              l0 = selectL, c0 = selectC, l1 = cursorL, c1 = cursorC;
+            else
+              l0 = cursorL, c0 = cursorC, l1 = selectL, c1 = selectC;
+          var bg = null;
+          const maxL = buffer.getLineCount()-1;
+          for (var y = 8, l = scrollL; y < 120 && l <= maxL; y+=7, ++l) {
+            const line = buffer.getLine(l);
+            const maxC = line.length;
+            for (var x = 0, c = scrollC; x < 190 && c <= maxC; x+=5, ++c) {
+              if (l == cursorL && c == cursorC)
+                bg = 11; // cursor
+              else if (select && (l > l0 || l == l0 && c >= c0) && (l < l1 || l == l1 && c < c1))
+                bg = 5; // selection
+              else
+                bg = null; // plain
+              sys.char(c == maxC ? ' ' : line.charAt(c), x, y, 15, bg);
+            }
+          }
+        },
+        onKey(e) {
+          if (e.key.length != 1) {
+            switch (e.key) {
+              case 'ArrowDown': arrowDown(e.shiftKey); return;
+              case 'ArrowLeft': arrowLeft(e.shiftKey); return;
+              case 'ArrowRight': arrowRight(e.shiftKey); return;
+              case 'ArrowUp': arrowUp(e.shiftKey); return;
+              case 'Backspace': backspace(); return;
+              case 'Enter': insert('\n'); return;
+            }
+            return;
+          }
+          insert(e.key);
+        },
+        onMouseDown(e) {
+          select = false; // TODO handle shift selection, drag select, double click, etc.
+          const x = floor(e.x/5), y = floor((e.y-1)/7);
+          cursorL = min(scrollL+y, buffer.getLineCount()-1);
+          cursorC = min(scrollC+x, buffer.getLine(cursorL).length);
+        },
+        onPaste(e) {
+          insert(e.clipboardData.getData('text/plain'));
+        },
+        onWheel(e) {
+          if (e.deltaY <= -1) {
+            scrollL = max(scrollL-1, 0);
+          } else if (e.deltaY >= 1) {
+            scrollL = min(scrollL+1, buffer.getLineCount()-1);
+          }
+          if (e.deltaX <= -1) {
+            scrollC = max(scrollC-1, 0);
+          } else if (e.deltaX >= 1) {
+            scrollC = min(scrollC+1, 100); // TODO proper limit
+          }
         },
       },
       { // menu button (menu)
@@ -152,249 +318,17 @@ module.exports = class CodeEditor {
           sys.vc(5);
         },
       },
-    ]);
+    ], this);
     this.ui = ui;
-  }
-
-  backspace() {
-    // TODO needs much fixing, this.column is off, use cursorLeft etc.
-    if (this.select) {
-      order(this.cursor, this.select);
-    } else if (poscmp([0, 0], this.cursor) < 0) {
-      this.select = [this.cursor[0], this.cursor[1]];
-      if (--this.cursor[1] < 0) {
-        if (--this.cursor[0] < 0) return;
-        this.cursor[1] = this.buffer.getLine(this.cursor[0]).length;
-      }
-    }
-    if (this.select) {
-      this.buffer.setText([this.cursor, this.select], '');
-      this.select = null;
-    }
-  }
-
-  character(ch) {
-    // TODO typing must affect selection
-    this.buffer.insert(this.cursor, ch);
-    this.cursorRight(false);
-  }
-
-  cursorDown(select) {
-    // if at EOF, do nothing (and still blink)
-    // if at last line, go to EOF
-    // if selection but not selecting
-    //   at top of selection --> go to bottom of selection
-    //   at bottom of selection --> go down one row
-    //   clear selection and target col in both cases
-    // if no selection and not selecting, target col
-    // if no selection and selecting, start selecting
-    // if selection and selecting, just keep moving
-    this.preSelect(select);
-    if (this.buffer.posDown(this.cursor, this.column)) {
-      this.postSelect();
-      this.scrollToCursor();
-    }
-  }
-
-  cursorLeft(select) {
-    // if there's a selection at all, go to its beginning and clear it
-    // clear the target column
-    // handle line wrapping
-    // don't do anything if at beginning
-    this.preSelect(select);
-    if (this.buffer.posLeft(this.cursor)) {
-      this.postSelect();
-      this.column = this.cursor[1];
-      this.scrollToCursor();
-    }
-  }
-
-  cursorRight(select) {
-    this.preSelect(select);
-    if (this.buffer.posRight(this.cursor)) {
-      this.postSelect();
-      this.column = this.cursor[1];
-      this.scrollToCursor();
-    }
-  }
-
-  cursorUp(select) {
-    this.preSelect(select);
-    if (this.buffer.posUp(this.cursor, this.column)) {
-      this.postSelect();
-      this.scrollToCursor();
-    }
-  }
-
-  enter() {
-    // TODO enter must affect selection
-    this.buffer.insert(this.cursor, '\n');
-    this.cursorRight(false);
-  }
-
-  preSelect(select) {
-    if (select && !this.select)
-      this.select = [this.cursor[0], this.cursor[1]];
-    else if (!select && this.select)
-      this.select = null;
-  }
-
-  postSelect() {
-    if (this.select && poscmp(this.select, this.cursor) === 0)
-      this.select = null;
-  }
-
-  scrollDown(n) {
-    const rOld = this.scroll[0];
-    const rNew = min(rOld+val(n, 1), this.buffer.getLineCount()-1);
-    if (rOld !== rNew) {
-      this.scroll[0] = rNew;
-    }
-  }
-
-  scrollLeft(n) {
-    const cOld = this.scroll[1];
-    const cNew = max(cOld-val(n, 1), 0);
-    if (cOld !== cNew) {
-      this.scroll[1] = cNew;
-    }
-  }
-
-  scrollRight(n) {
-    const cOld = this.scroll[1];
-    const cNew = min(cOld+val(n, 1), 38); // TODO max line length
-    if (cOld !== cNew) {
-      this.scroll[1] = cNew;
-    }
-  }
-
-  scrollToCursor() {
-    if (this.scroll[0] < this.cursor[0]-15) {
-      this.scroll[0] = this.cursor[0]-15;
-    } else if (this.scroll[0] > this.cursor[0]) {
-      this.scroll[0] = this.cursor[0];
-    }
-    if (this.scroll[1] < this.cursor[1]-36) {
-      this.scroll[1] = this.cursor[1]-36;
-    } else if (this.scroll[1] > this.cursor[1]-4) {
-      this.scroll[1] = max(this.cursor[1]-4, 0);
-    }
-    if (this.scroll[0] < 0 || this.scroll[1] < 0) {
-      console.log('ERROR ERROR ERROR', this.scroll, this.cursor);
-    }
-  }
-
-  scrollUp(n) {
-    const rOld = this.scroll[0];
-    const rNew = max(rOld-val(n, 1), 0);
-    if (rOld !== rNew) {
-      this.scroll[0] = rNew;
-    }
+    ui._focus = ui.text;
   }
 
   // ---------------------------------------------------------------------------
 
-  onDraw() {
-    const emptyColor = 3;
-    const cursorColor = 11;
-    const selectColor = 5;
-    const textColor = 15;
-    const cursorTextColor = 3;
-    const selectTextColor = 3;
-    
-    const rCursor = this.cursor[0];
-    const cCursor = this.cursor[1];
-    
-    this.ui.onDraw();
-    
-    // Status bar
-    this.sys.text(`LN ${1+rCursor}  COL ${1+cCursor}`, 0, 121, 5);
-    
-    // Text area
-    const sel = this.select;
-    var selStart, selEnd;
-    if (sel) {
-      if (poscmp(this.cursor, sel) < 0) {
-        selStart = this.cursor;
-        selEnd = sel;
-      } else {
-        selStart = sel;
-        selEnd = this.cursor;
-      }
-    }
-    const lineCount = this.buffer.getLineCount();
-    for (var y = 8, r = this.scroll[0]; y < 120; y+=7, ++r) {
-      if (r == lineCount) {
-        this.sys.rect(0, y, 190, 120-y, emptyColor); // below last line
-        break;
-      }
-      const line = this.buffer.getLine(r);
-      const charCount = line.length;
-      for (var x = 0, c = this.scroll[1]; x < 190; x+=5, ++c) {
-        var ch;
-        if (charCount < c) {
-          // Right of last character
-          this.sys.rect(x, y, 190-x, 7, emptyColor); // right of last character
-          break;
-        } else if (c == charCount) {
-          ch = ' ';
-        } else {
-          ch = line.charAt(c);
-        }
-        var bgColor, fgColor;
-        if (r == rCursor && c == cCursor) {
-          bgColor = cursorColor;
-          fgColor = cursorTextColor;
-        } else if (sel && containsrc(selStart, selEnd, r, c)) {
-          bgColor = selectColor;
-          fgColor = selectTextColor;
-        } else {
-          bgColor = emptyColor;
-          fgColor = textColor;
-        }
-        this.sys.char(ch, x, y, fgColor, bgColor); // character
-      }
-    }
-    
-    // Extra areas
-    this.sys.rect(0, 7, 192, 1, emptyColor);
-    this.sys.rect(190, 8, 2, 112, emptyColor);
-    this.sys.rect(0, 120, 192, 1, emptyColor);
-  }
-
-  onKeyDown(e) {
-    if (e.key.length == 1) {
-      const cc = e.key.charCodeAt();
-      if (32 <= cc && cc < 127)
-        this.character(e.key);
-      else
-        console.log('code-editor.onKeyDown: non-printable', cc);
-      return;
-    }
-    switch (e.key) {
-      case 'ArrowDown': this.cursorDown(e.shiftKey); break;
-      case 'ArrowLeft': this.cursorLeft(e.shiftKey); break;
-      case 'ArrowRight': this.cursorRight(e.shiftKey); break;
-      case 'ArrowUp': this.cursorUp(e.shiftKey); break;
-      case 'Backspace': this.backspace(); break;
-      case 'Enter': this.enter(); break;
-    }
-  }
-
-  onMouseClick(e) {
-  }
-
-  onMouseWheel(e) {
-    if (e.deltaY <= -1) this.scrollUp();
-    else if (e.deltaY >= 1) this.scrollDown();
-    else if (e.deltaX <= -1) this.scrollLeft();
-    else if (e.deltaX >= 1) this.scrollRight();
-  }
-
   onResume() {
     this.sys.memwrite(0x8000, '00221408142200000036222222360000001c2a3e3e2a0000003636003636000000080c2c3c3e0000001010101c1c0000007c007c007c00000010087c081000000010207c20100000002828106c6c0000003c7c4c4c78000000787c64643c0000000000000000000000000000000000000000000000000000000000000000000010387c3e1d090700102040fe7d391100000000000000000055004100410055001454547d7f7e3c007f41415d41417f007f41495d49417f007f557f557f557f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040604000000000404040400000000040c0400');
     if (this.handle !== window.program_handle)
-      this.main();
+      this.reset(window.program_code);
   }
 
   onSuspend() {

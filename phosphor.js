@@ -1028,6 +1028,18 @@ module.exports = class Phosphor {
 
   // ---------------------------------------------------------------------------
 
+  onCopy(e) {
+    if (this.vc.onCopy) this.vc.onCopy(e);
+    this.onDraw();
+    e.preventDefault();
+  }
+
+  onCut(e) {
+    if (this.vc.onCut) this.vc.onCut(e);
+    this.onDraw();
+    e.preventDefault();
+  }
+
   onDraw() {
     if (this.vc.onDraw) this.vc.onDraw();
     this.bspScreenFlip(this.mem);
@@ -1082,7 +1094,6 @@ module.exports = class Phosphor {
           this.sys.vc(10); e.preventDefault(); return;
         }
       }
-      this.onDraw();
       return;
     }
     if (e.key == 'Escape') {
@@ -1110,31 +1121,32 @@ module.exports = class Phosphor {
 
   onMouseClick(e) {
     if (this.vc.onMouseClick) this.vc.onMouseClick(e);
-    //e.preventDefault();
     this.onDraw();
   }
 
   onMouseDown(e) {
     if (this.vc.onMouseDown) this.vc.onMouseDown(e);
-    //e.preventDefault();
     this.onDraw();
   }
 
   onMouseMove(e) {
     if (this.vc.onMouseMove) this.vc.onMouseMove(e);
-    //e.preventDefault();
     this.onDraw();
   }
 
   onMouseUp(e) {
     if (this.vc.onMouseUp) this.vc.onMouseUp(e);
-    //e.preventDefault();
     this.onDraw();
   }
 
+  onPaste(e) {
+    if (this.vc.onPaste) this.vc.onPaste(e);
+    this.onDraw();
+    e.preventDefault();
+  }
+
   onWheel(e) {
-    if (this.vc.onMouseWheel) this.vc.onMouseWheel(e);
-    //e.preventDefault();
+    if (this.vc.onWheel) this.vc.onWheel(e);
     this.onDraw();
   }
 
