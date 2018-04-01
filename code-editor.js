@@ -3,11 +3,29 @@
 
 'use strict';
 
+const Action = require('./action.js');
 const Buffer = require('./buffer.js');
 const Ui = require('./ui.js');
 
 const floor = Math.floor;
 const max = Math.max, min = Math.min;
+
+function clamp(val, min, max) {
+  return val < min ? min : max < val ? max : val;
+}
+
+function countLastLineChars(str) {
+  return str.length - str.lastIndexOf('\n') - 1;
+}
+
+function countNewLines(str) {
+  // TODO maybe loop using indexOf
+  var n = 0;
+  for (var i = str.length-1; i >= 0; --i)
+    if (str[i] == '\n')
+      ++n;
+  return n;
+}
 
 module.exports = class CodeEditor {
 
@@ -24,6 +42,63 @@ module.exports = class CodeEditor {
     this.handle = window.program_handle;
     this.buffer = buffer;
     this.reset = reset;
+    
+    // -------------------------------------------------------------------------
+    
+    const am = new Action(redo, undo, merge, discard);
+    const pool = [];
+    
+    function action(t, l0, c0, l1, c1, t2) {
+      if (l1 < l0 || l1 == l0 && c1 < c0) {
+        l0 = l1 + (l1 = l0, 0);
+        c0 = c1 + (c1 = c0, 0);
+      }
+      const a = pool.pop() || {};
+      a.t = t, a.l0 = l0, a.c0 = c0, a.l1 = l1, a.c1 = c1, a.t2 = t2;
+      return a;
+    }
+    
+    function discard(a) {
+      a.l2 = null;
+      pool.push(a);
+    }
+    
+    function merge(a0, a1) {
+      if (a0.t == a1.t) {
+        if (a0.t == 'i' && a1.t2[0] != '\n' && a0.l2 == a1.l0 && a0.c2 == a1.c0) {
+          a0.l2 = a1.l2, a0.c2 = a1.c2;
+          a0.t2 += a1.t2;
+          return true;
+        } else if (a0.t == 'b' && a1.t1[0] != '\n' && a0.l2 == a1.l1 && a0.c2 == a1.c1) {
+          a0.l0 = a1.l0, a0.c0 = a1.c0;
+          a0.l2 = a1.l2, a0.c2 = a1.c2;
+          a0.t1 = a1.t1 + a0.t1;
+          return true;
+        }
+      }
+      return false;
+    }
+    
+    function redo(a) {
+      a.t1 = buffer.setText(a.l0, a.c0, a.l1, a.c1, a.t2);
+      if (a.l2 == null) {
+        const n = countNewLines(a.t2);
+        a.l2 = a.l0 + n;
+        a.c2 = (n > 0) ? countLastLineChars(a.t2) : a.c0+a.t2.length;
+      }
+      cursorL = a.l2, cursorC = targetC = a.c2;
+      select = false;
+      scrollToCursor();
+    }
+    
+    function undo(a) {
+      buffer.setText(a.l0, a.c0, a.l2, a.c2, a.t1);
+      cursorL = a.l1, cursorC = targetC = a.c1;
+      select = false;
+      scrollToCursor();
+    }
+    
+    // -------------------------------------------------------------------------
     
     function arrowDown(shift) {
       if (shift && !select)
@@ -88,40 +163,24 @@ module.exports = class CodeEditor {
       scrollToCursor();
     }
     
-    function backspace() {
-      var l0, c0, l1, c1;
+    function delete_() {
       if (select)
-        if (selectL < cursorL || selectL == cursorL && selectC <= cursorC)
-          l0 = selectL, c0 = selectC, l1 = cursorL, c1 = cursorC;
-        else
-          l0 = cursorL, c0 = cursorC, l1 = selectL, c1 = selectC;
+        am.do(action('d', cursorL, cursorC, selectL, selectC, ''));
       else if (0 < cursorC)
-        l0 = l1 = cursorL, c0 = cursorC-1, c1 = cursorC;
+        am.do(action('b', cursorL, cursorC, cursorL, cursorC-1, ''));
       else if (0 < cursorL)
-        l0 = cursorL-1, c0 = buffer.getLine(l0).length, l1 = cursorL, c1 = cursorC;
+        am.do(action('b', cursorL, cursorC, cursorL-1, buffer.getLine(cursorL-1).length, ''));
       else {
         sys.beep();
-        return;
+        scrollToCursor();
       }
-      buffer.setText(l0, c0, l1, c1, '');
-      cursorL = l0, cursorC = targetC = c0, select = false;
-      scrollToCursor();
     }
     
     function insert(text) {
-      var l0, c0, l1, c1;
       if (select)
-        if (selectL < cursorL || selectL == cursorL && selectC <= cursorC)
-          l0 = selectL, c0 = selectC, l1 = cursorL, c1 = cursorC;
-        else
-          l0 = cursorL, c0 = cursorC, l1 = selectL, c1 = selectC;
+        am.do(action('r', cursorL, cursorC, selectL, selectC, text));
       else
-        l0 = l1 = cursorL, c0 = c1 = cursorC;
-      const n = buffer.setText(l0, c0, l1, c1, text);
-      cursorL = l0+n;
-      cursorC = targetC = (n > 0) ? text.length-text.lastIndexOf('\n')-1 : c0+text.length;
-      select = false;
-      scrollToCursor();
+        am.do(action('i', cursorL, cursorC, cursorL, cursorC, text))
     }
     
     function reset(text) {
@@ -129,12 +188,15 @@ module.exports = class CodeEditor {
       buffer.setText(0, 0, maxL, buffer.getLine(maxL).length, text);
       scrollL = scrollC = cursorL = cursorC = selectL = selectC = targetC = 0;
       select = false;
+      am.clear();
     }
     
     function scrollToCursor() {
-      scrollL = max(cursorL-15, min(scrollL, cursorL));
-      scrollC = max(cursorC-36, min(scrollC, max(cursorC-4, 0)));
+      scrollL = clamp(scrollL, cursorL-15, cursorL);
+      scrollC = clamp(scrollC, cursorC-36, max(cursorC-4, 0));
     }
+    
+    // -------------------------------------------------------------------------
     
     const ui = new Ui([
       { // bg
@@ -164,7 +226,7 @@ module.exports = class CodeEditor {
         onCut(e) {
           this.onCopy(e);
           if (select)
-            backspace();
+            delete_();
         },
         onDraw() {
           var l0, c0, l1, c1;
@@ -196,10 +258,19 @@ module.exports = class CodeEditor {
               case 'ArrowLeft': arrowLeft(e.shiftKey); return;
               case 'ArrowRight': arrowRight(e.shiftKey); return;
               case 'ArrowUp': arrowUp(e.shiftKey); return;
-              case 'Backspace': backspace(); return;
+              case 'Backspace': delete_(); return;
               case 'Enter': insert('\n'); return;
             }
             return;
+          }
+          if (e.ctrlKey) {
+            if (e.key == 'z') {
+              am.undo();
+              return;
+            } else if (e.key == 'Z') {
+              am.redo();
+              return;
+            }
           }
           insert(e.key);
         },
@@ -210,6 +281,8 @@ module.exports = class CodeEditor {
           cursorC = min(scrollC+x, buffer.getLine(cursorL).length);
         },
         onPaste(e) {
+          if (!select)
+            selectL = cursorL, selectC = cursorC, select = true;
           insert(e.clipboardData.getData('text/plain'));
         },
         onWheel(e) {
@@ -239,6 +312,7 @@ module.exports = class CodeEditor {
           sys.char(7, this.x, this.y, 5);
         },
         onMouseDown() {
+          am.undo();
         },
       },
       { // menu button (redo)
@@ -247,6 +321,7 @@ module.exports = class CodeEditor {
           sys.char(8, this.x, this.y, 5);
         },
         onMouseDown() {
+          am.redo();
         },
       },
       { // menu button (cut)

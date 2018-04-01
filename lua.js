@@ -33,6 +33,16 @@ do
     return sys_key(nil, ...)
   end
   
+  local sys_keyp = g.__sys_keyp
+  function keyp(...)
+    return sys_keyp(nil, ...)
+  end
+  
+  local sys_keyr = g.__sys_keyr
+  function keyr(...)
+    return sys_keyr(nil, ...)
+  end
+  
   local sys_line = g.__sys_line
   function line(...)
     return sys_line(nil, ...)
@@ -45,6 +55,26 @@ do
     sys_map(nil, ...)
   end
   
+  local sys_memcopy = g.__sys_memcopy
+  function memcopy(...)
+    sys_memcopy(nil, ...)
+  end
+  
+  local sys_memread = g.__sys_memread
+  function memread(...)
+    return sys_memread(nil, ...)
+  end
+  
+  local sys_memset = g.__sys_memset
+  function memset(...)
+    sys_memset(nil, ...)
+  end
+  
+  local sys_memwrite = g.__sys_memwrite
+  function memwrite(...)
+    sys_memwrite(nil, ...)
+  end
+  
   local sys_mget = g.__sys_mget
   function mget(...)
     return sys_mget(nil, ...)
@@ -55,20 +85,25 @@ do
     sys_mset(nil, ...)
   end
   
-  --local sys_pal = g.__sys_pal
-  --function pal(...)
-  --  sys_pal(nil, ...)
-  --end
+  local sys_peek = g.__sys_peek
+  function peek(...)
+    return sys_peek(nil, ...)
+  end
   
   local sys_pget = g.__sys_pget
   function pget(...)
-    sys_pget(nil, ...)
+    return sys_pget(nil, ...)
   end
   
   -- TODO not the best impl, handle table, etc.
   local sys_write = g.__sys_write
   function print(...)
     sys_write(nil, concat({...}, ' '), '\\n')
+  end
+  
+  local sys_poke = g.__sys_poke
+  function poke(...)
+    sys_poke(nil, ...)
   end
   
   local sys_pset = g.__sys_pset
@@ -120,12 +155,19 @@ module.exports = class Lua {
     window.__sys_circle = sys.circle.bind(sys);
     window.__sys_clear = sys.clear.bind(sys);
     window.__sys_key = sys.key.bind(sys);
+    window.__sys_keyp = sys.keyp.bind(sys);
+    window.__sys_keyr = sys.keyr.bind(sys);
     window.__sys_line = sys.line.bind(sys);
     window.__sys_map = sys.map.bind(sys);
+    window.__sys_memcopy = sys.memcopy.bind(sys);
+    window.__sys_memread = sys.memread.bind(sys);
+    window.__sys_memset = sys.memset.bind(sys);
+    window.__sys_memwrite = sys.memwrite.bind(sys);
     window.__sys_mget = sys.mget.bind(sys);
     window.__sys_mset = sys.mset.bind(sys);
-    //window.__sys_pal = sys.pal.bind(sys);
+    window.__sys_peek = sys.peek.bind(sys);
     window.__sys_pget = sys.pget.bind(sys);
+    window.__sys_poke = sys.poke.bind(sys);
     window.__sys_pset = sys.pset.bind(sys);
     window.__sys_rect = sys.rect.bind(sys);
     window.__sys_sget = sys.sget.bind(sys);
@@ -138,12 +180,19 @@ module.exports = class Lua {
     delete window.__sys_circle;
     delete window.__sys_clear;
     delete window.__sys_key;
+    delete window.__sys_keyp;
+    delete window.__sys_keyr;
     delete window.__sys_line;
     delete window.__sys_map;
+    delete window.__sys_memcopy;
+    delete window.__sys_memread;
+    delete window.__sys_memset;
+    delete window.__sys_memwrite;
     delete window.__sys_mget;
     delete window.__sys_mset;
-    //delete window.__sys_pal;
+    delete window.__sys_peek;
     delete window.__sys_pget;
+    delete window.__sys_poke;
     delete window.__sys_pset;
     delete window.__sys_rect;
     delete window.__sys_sget;

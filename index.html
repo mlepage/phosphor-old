@@ -100,9 +100,29 @@ key('y', delay, rate) -- true if key 'y' is repeating, which occurs:
     -- first frame, after delay frames, then every rate frames)
 </pre>
 
+<p>Memory access:</p>
+
+<pre>
+peek(addr) -- get byte
+poke(addr, val) -- set byte to val
+memset(addr, len, val) -- set len bytes of memory to val
+memcopy(addr, len, addr_from) -- copy len bytes of memory
+memread(addr, len) -- get len bytes (as hex string)
+memwrite(addr, str) -- set bytes (from hex string)
+</pre>
+
 <p>Please note that at this point, nothing finalized, everything is subject to change.</p>
 
 <h1>Changelog</h1>
+
+<h2>2018-04-01</h2>
+
+<pre>
+- implement action module (for undo/redo)
+- add undo/redo to code editor
+- add memory syscalls: peek, poke
+- add memory syscalls: memset, memcopy, memread, memwrite
+</pre>
 
 <h2>2018-03-30</h2>
 

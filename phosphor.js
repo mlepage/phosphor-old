@@ -551,7 +551,7 @@ module.exports = class Phosphor {
   syscall_load(filename) {
     systrace('load', this, arguments);
     const handle = fileOpen(filename, 'r');
-    this.memset(0x3000, 0, 0x5000);
+    this.memset(0x3000, 0x5000, 0);
     delete window.program_handle;
     delete window.program_code;
     // TODO should return true/false and let shell print feedback
@@ -598,8 +598,8 @@ module.exports = class Phosphor {
         this.sprite(this.mget(x_+x, y_+y), sx+(x<<3), sy+(y<<3));
   }
 
-  syscall_memcpy(dest_addr, source_addr, len) {
-    this._os.mem.copyWithin(dest_addr, source_addr, source_addr+len);
+  syscall_memcopy(addr, len, addr_from) {
+    this._os.mem.copyWithin(addr, addr_from, addr_from+len);
   }
 
   syscall_memread(addr, len) {
@@ -612,8 +612,8 @@ module.exports = class Phosphor {
     return str;
   }
 
-  syscall_memset(dest_addr, val, len) {
-    this._os.mem.fill(val, dest_addr, dest_addr+len);
+  syscall_memset(addr, len, val) {
+    this._os.mem.fill(val, addr, addr+len);
   }
 
   syscall_memwrite(addr, str) {
@@ -1094,7 +1094,8 @@ module.exports = class Phosphor {
           this.sys.vc(10); e.preventDefault(); return;
         }
       }
-      return;
+      if (e.key != 'z' && e.key != 'Z')
+        return;
     }
     if (e.key == 'Escape') {
       this.sys.vc(this.vc == this.VC[0] ? this.editor : 0);
