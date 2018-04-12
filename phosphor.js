@@ -513,7 +513,7 @@ module.exports = class Phosphor {
   syscall_keyp(keycode) {
     if (typeof keycode == 'string')
       keycode = keycode.charCodeAt();
-    return this._os.keyp[keycode] === 0;
+    return this._os.keyp[keycode] === this._os.frame;
   }
 
   syscall_keyr(keycode) {
