@@ -1125,25 +1125,28 @@ module.exports = class Phosphor {
     this.onDraw();
   }
 
-  onMouseDown(e) {
-    if (this.vc.onMouseDown) this.vc.onMouseDown(e);
-    this.onDraw();
-  }
-
-  onMouseMove(e) {
-    if (this.vc.onMouseMove) this.vc.onMouseMove(e);
-    this.onDraw();
-  }
-
-  onMouseUp(e) {
-    if (this.vc.onMouseUp) this.vc.onMouseUp(e);
-    this.onDraw();
-  }
-
   onPaste(e) {
     if (this.vc.onPaste) this.vc.onPaste(e);
     this.onDraw();
     e.preventDefault();
+  }
+
+  onPointerDown(e) {
+    if (this.vc.onPointerDown) this.vc.onPointerDown(e);
+    else if (this.vc.onMouseDown) this.vc.onMouseDown(e); // TODO remove later
+    this.onDraw();
+  }
+
+  onPointerMove(e) {
+    if (this.vc.onPointerMove) this.vc.onPointerMove(e);
+    else if (this.vc.onMouseMove) this.vc.onMouseMove(e); // TODO remove later
+    this.onDraw();
+  }
+
+  onPointerUp(e) {
+    if (this.vc.onPointerUp) this.vc.onPointerUp(e);
+    else if (this.vc.onMouseUp) this.vc.onMouseUp(e); // TODO remove later
+    this.onDraw();
   }
 
   onWheel(e) {

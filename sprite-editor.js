@@ -3,319 +3,442 @@
 
 'use strict';
 
-const Ui = require('./ui.js');
+const Action = require('./action.js');
+const Ui = require('./nui.js');
 
+const abs = Math.abs;
 const floor = Math.floor, ceil = Math.ceil;
 const min = Math.min, max = Math.max;
 
-function sprite2char(sys, n) {
-  var a = 0x8000+(n<<3);
-  for (var y = 0; y < 8; ++y) {
-    var b = 0;
-    for (var x = 0; x < 8; ++x) {
-      const c = sys.sget(n, x, y);
-      if (c)
-        b |= (1<<x);
-    }
-    sys.poke(a++, b);
-  }
+function clamp(val, min, max) {
+  return val < min ? min : max < val ? max : val;
 }
 
-function char2sprite(sys, n) {
-  var a = 0x8000+(n<<3);
-  for (var y = 0; y < 8; ++y) {
-    var b = sys.peek(a++);
-    for (var x = 0; x < 8; ++x, b>>>=1) {
-      const c = (b&1)*15
-      sys.sset(n, x, y, c);
-    }
-  }
-}
+const zoom = [];
+zoom[12] = { out: 6 };
+zoom[6] = { out: 4, in: 12 };
+zoom[4] = { out: 3, in: 6 };
+zoom[3] = { out: 2, in: 4 };
+zoom[2] = { out: 1, in: 3 };
+zoom[1] = { in: 2 };
 
 module.exports = class SpriteEditor {
 
   main() {
     const sys = this.sys;
     
-    var sheetX = 0; // sheet origin (cells)
-    var sheetY = 0; // sheet origin (cells)
-    var sheetW = 8; // sheet size (cells)
-    var sheetH = 8; // sheet size (cells)
-    var sheetWrap = false; // sheet wrap or not
+    let tool = 'draw';
+    let color = 15;
     
-    var color = 15; // paint color
-    var sprite = 0; // index of selected sprite
-    var sheetx = 0; // sheet scroll x
-    var sheety = 0; // sheet scroll y
+    // canvas
+    let cz = 12; // zoom scale (1, 2, 3, 4, 6, 12)
+    let cn = 96/cz; // width/height (pixels)
+    let cx = 0, cy = 0; // top left (pixels)
     
-    var mouseDown = false;
+    // sheet
+    let sx = 0, sy = 0; // top left (cells)
     
-    var bg = 3;
+    // -------------------------------------------------------------------------
+    
+    const am = new Action(redo, undo, merge);
+    
+    function merge(a0, a1) {
+      if (typeof(a1) == 'number' && (a1&0x1000000)) {
+        a1 &= 0xffffff;
+        if (typeof(a0) == 'number')
+          return (((a0>>4)&0xf) == (a0&0xf)) ? a1 : [ a0, a1 ];
+        else
+          return a0.push(a1), a0;
+      } else if (typeof(a0) == 'number' && (((a0>>4)&0xf) == (a0&0xf)))
+        return a1;
+      // TODO still one minor annoyance: if you draw a pixel same color as before,
+      // it will be replaced after next action, but until then, it can undo/redo
+      // (without having visible action, and without matching later undo/redo
+      // sequence after it has been merged)
+    }
+    
+    function redo(a) {
+      if (typeof(a) == 'number')
+        sset((a>>8)&0x7f, (a>>16)&0x7f, a&0xf);
+      else
+        for (let i = 0, n = a[i]; i < a.length; ++i, n = a[i])
+          sset((n>>8)&0x7f, (n>>16)&0x7f, n&0xf);
+    }
+    
+    function undo(a) {
+      if (typeof(a) == 'number')
+        sset((a>>8)&0x7f, (a>>16)&0x7f, (a>>4)&0xf);
+      else
+        for (let i = 0, n = a[i]; i < a.length; ++i, n = a[i])
+          sset((n>>8)&0x7f, (n>>16)&0x7f, (n>>4)&0xf);
+    }
+    
+    // -------------------------------------------------------------------------
+    
+    function draw(x, y, c, move) {
+      const t = sget(x, y);
+      if (t != c || !move)
+        am.do((move?0x1000000:0)|(y<<16)|(x<<8)|(t<<4)|c);
+    }
+    
+    function fill(x, y, c) {
+      const t = sget(x, y);
+      if (t == c)
+        return;
+      const m = 0x1000000|(t<<4)|c;
+      let n = (y<<16)|(x<<8)|(t<<4)|c;
+      am.do(n);
+      const q = [n];
+      while (q.length) {
+        n = q.shift();
+        x = (n>>8)&0x7f;
+        y = (n>>16)&0x7f;
+        --y;
+        if (cy <= y && sget(x, y) == t)
+          n = (y<<16)|(x<<8)|m, am.do(n), q.push(n);
+        ++y, --x;
+        if (cx <= x && sget(x, y) == t)
+          n = (y<<16)|(x<<8)|m, am.do(n), q.push(n);
+        x += 2;
+        if (x < cx+cn && sget(x, y) == t)
+          n = (y<<16)|(x<<8)|m, am.do(n), q.push(n);
+        --x, ++y;
+        if (y < cy+cn && sget(x, y) == t)
+          n = (y<<16)|(x<<8)|m, am.do(n), q.push(n);
+      }
+    }
+    
+    function sget(x, y) {
+      return sys.sget(((y&~7)<<1)+(x>>3), x&7, y&7);
+    }
+    
+    function sset(x, y, c) {
+      sys.sset(((y&~7)<<1)+(x>>3), x&7, y&7, c);
+    }
+    
+    // -------------------------------------------------------------------------
     
     const ui = new Ui([
-      { // bg
+      {
+        name: 'bg',
         x: 0, y: 0, w: 192, h: 128,
         onDraw() {
           sys.clear(3);
           sys.rect(0, 0, 192, 7, 11);
           sys.rect(0, 121, 192, 7, 11);
-          var str = ''+sprite;
-          sys.text(str, 191-5*str.length, 121, 5);
         },
       },
-      { // canvas
-        x: 12, y: 16, w: 96, h: 96,
-        onDraw() {
-          sys.rect(this.x-1, this.y-1, this.w+2, this.h+2, null, 0);
-          for (var y = 0; y < 8; ++y)
-            for (var x = 0; x < 8; ++x)
-              sys.rect(this.x+x*12, this.y+y*12, 12, 12, sys.sget(sprite, x, y));
-        },
-        onMouseDown(e) {
-          mouseDown = true;
-          sys.sset(sprite, floor(e.x/12), floor(e.y/12), color);
-        },
-        onMouseMove(e) {
-          if (mouseDown)
-            sys.sset(sprite, floor(e.x/12), floor(e.y/12), color);
-        },
-        onMouseUp(e) {
-          mouseDown = false;
-        },
+      {
+        name: 'titlebar',
+        x: 0, y: 0, w: 192, h: 8,
+        children: [
+          {
+            name: 'menu',
+            x: 0, y: 0, w: 8, h: 8,
+            onDraw() {
+              sys.char(0, this.x, this.y, 5);
+            },
+            onPointerDown() {
+              ui.menu.visible = !ui.menu.visible;
+            },
+          },
+          {
+            name: 'undo',
+            x: 16, y: 0, w: 8, h: 8,
+            onDraw() {
+              sys.char(6, this.x, this.y, 5);
+            },
+            onPointerDown() {
+              am.undo();
+            },
+          },
+          {
+            name: 'redo',
+            x: 24, y: 0, w: 8, h: 8,
+            onDraw() {
+              sys.char(7, this.x, this.y, 5);
+            },
+            onPointerDown() {
+              am.redo();
+            },
+          },
+          {
+            name: 'cut',
+            x: 40, y: 0, w: 8, h: 8,
+            onDraw() {
+              sys.char(8, this.x, this.y, 5);
+            },
+            onPointerDown() {
+              console.log('<cut>');
+            },
+          },
+          {
+            name: 'copy',
+            x: 48, y: 0, w: 8, h: 8,
+            onDraw() {
+              sys.char(9, this.x, this.y, 5);
+            },
+            onPointerDown() {
+              console.log('<copy>');
+            },
+          },
+          {
+            name: 'paste',
+            x: 56, y: 0, w: 8, h: 8,
+            onDraw() {
+              sys.char(10, this.x, this.y, 5);
+            },
+            onPointerDown() {
+              console.log('<paste>');
+            },
+          },
+          {
+            name: 'code',
+            x: 152, y: 0, w: 8, h: 8,
+            onDraw() {
+              sys.char(1, this.x, this.y, 5);
+            },
+            onPointerDown() {
+              sys.vc(1);
+            },
+          },
+          {
+            name: 'sprite',
+            x: 160, y: 0, w: 8, h: 8,
+            onDraw() {
+              sys.char(2, this.x, this.y, 15);
+            },
+          },
+          {
+            name: 'map',
+            x: 168, y: 0, w: 8, h: 8,
+            onDraw() {
+              sys.char(3, this.x, this.y, 5);
+            },
+            onPointerDown() {
+              sys.vc(3);
+            },
+          },
+          {
+            name: 'sound',
+            x: 176, y: 0, w: 8, h: 8,
+            onDraw() {
+              sys.char(4, this.x, this.y, 5);
+            },
+            onPointerDown() {
+              sys.vc(4);
+            },
+          },
+          {
+            name: 'music',
+            x: 184, y: 0, w: 8, h: 8,
+            onDraw() {
+              sys.char(5, this.x, this.y, 5);
+            },
+            onPointerDown() {
+              sys.vc(5);
+            },
+          },
+        ],
       },
-      { // sheet
-        x: 119, y: 48, w: 64, h: 64,
-        onDraw() {
-          // sheet outline
-          sys.rect(this.x-1, this.y-1, this.w+2, this.h+2, null, 0);
-          // sprites
-          for (var y = 0; y < sheetH; ++y)
-            for (var x = 0; x < sheetW; ++x)
-              sys.sprite(((sheetY+y)<<4)+(sheetX+x), this.x+(x<<3), this.y+(y<<3));
-          // selected sprite outline
-          x = (sprite&0xf)-sheetX;
-          y = (sprite>>4)-sheetY;
-          if (0 <= x && x < 8 && 0 <= y && y < 8) {
-            sys.rect(this.x+(x<<3)-1, this.y+(y<<3)-1, 10, 10, null, 15);
-          }
-        },
-        onMouseDown(e) {
-          sprite = (sheetY+(e.y>>3))*16+sheetX+(e.x>>3);
-        },
-        onWheel(e) {
-          if (e.deltaY <= -1) {
-            sheetY = max(sheetY-1, 0);
-          } else if (e.deltaY >= 1) {
-            sheetY = min(sheetY+1, 8);
-          }
-          if (e.deltaX <= -1) {
-            sheetX = max(sheetX-1, 0);
-          } else if (e.deltaX >= 1) {
-            sheetX = min(sheetX+1, 8);
-          }
-        },
+      {
+        name: 'toolbar',
+        x: 0, y: 16, w: 12, h: 96,
+        children: [
+          {
+            name: 'draw',
+            x: 0, y: 16, w: 12, h: 12,
+            onDraw() {
+              sys.char(16, 2+this.x, 2+this.y, tool == 'draw' ? 10 : 7);
+            },
+            onPointerDown() {
+              tool = 'draw';
+            },
+          },
+          {
+            name: 'fill',
+            x: 0, y: 28, w: 12, h: 12,
+            onDraw() {
+              sys.char(17, 2+this.x, 2+this.y, tool == 'fill' ? 10 : 7);
+            },
+            onPointerDown() {
+              tool = 'fill';
+            },
+          },
+          {
+            name: 'stamp',
+            x: 0, y: 40, w: 12, h: 12,
+            onDraw() {
+              sys.char(18, 2+this.x, 2+this.y, tool == 'stamp' ? 10 : 7);
+            },
+            onPointerDown() {
+              tool = 'stamp';
+            },
+          },
+          {
+            name: 'select',
+            x: 0, y: 52, w: 12, h: 12,
+            onDraw() {
+              sys.char(19, 2+this.x, 2+this.y, tool == 'select' ? 10 : 7);
+            },
+            onPointerDown() {
+              tool = 'select';
+            },
+          },
+          {
+            name: 'pan',
+            x: 0, y: 64, w: 12, h: 12,
+            onDraw() {
+              sys.char(20, 2+this.x, 2+this.y, tool == 'pan' ? 10 : 7);
+            },
+            onPointerDown() {
+              tool = 'pan';
+            },
+          },
+          {
+            name: 'zoomin',
+            x: 0, y: 76, w: 12, h: 12,
+            onDraw() {
+              sys.char(21, 2+this.x, 2+this.y, 7);
+            },
+            onPointerDown() {
+              if (cz == 12)
+                return;
+              cz = zoom[cz].in, cn = 96/cz;
+            },
+          },
+          {
+            name: 'zoomout',
+            x: 0, y: 88, w: 12, h: 12,
+            onDraw() {
+              sys.char(22, 2+this.x, 2+this.y, 7);
+            },
+            onPointerDown() {
+              if (cz == 1)
+                return;
+              cz = zoom[cz].out, cn = 96/cz;
+              cx = min(cx, 128-cn), cy = min(cy, 128-cn);
+            },
+          },
+          {
+            name: 'grid',
+            x: 0, y: 100, w: 12, h: 12,
+            onDraw() {
+              sys.char(23, 2+this.x, 2+this.y, 7);
+            },
+            onPointerDown() {
+              console.log('grid pressed');
+            },
+          },
+        ],
       },
-      { // palette
+      {
+        name: 'palette',
         x: 119, y: 16, w: 64, h: 16,
         onDraw() {
           sys.rect(this.x-1, this.y-1, this.w+2, this.h+2, undefined, 0);
-          for (var c = 0; c < 16; ++c)
+          for (let c = 0; c < 16; ++c)
             sys.rect(this.x+((c&0x7)<<3), this.y+(c&0x8), 8, 8, c);
           sys.rect(this.x+((color&0x7)<<3)-1, this.y+(color&0x8)-1, 10, 10, undefined, 15);
           if (color == 15)
             sys.rect(this.x+((color&0x7)<<3), this.y+(color&0x8), 8, 8, undefined, 3);
         },
-        onMouseDown(e) {
+        onPointerDown(e) {
           color = (e.y&0x8)+(e.x>>3);
         },
       },
-      { // tool button (draw)
-        x: 0, y: 16, w: 12, h: 12,
+      {
+        name: 'sheet',
+        x: 119, y: 48, w: 64, h: 64,
         onDraw() {
-          sys.char(16, 2+this.x, 2+this.y, 10);
+          sys.rect(this.x-1, this.y-1, this.w+2, this.h+2, null, 0);
+          for (let i = 0, y = sy; i < 8; ++i, ++y)
+            for (let j = 0, x = sx; j < 8; ++j, ++x)
+              sys.sprite((y<<4)+x, this.x+(j<<3), this.y+(i<<3));
+          let x = cx-(sx<<3);
+          let y = cy-(sy<<3);
+          let x0 = clamp(x-1, -1, 64);
+          let y0 = clamp(y-1, -1, 64);
+          let x1 = clamp(x+cn+1, 0, 65);
+          let y1 = clamp(y+cn+1, 0, 65);
+          sys.rect(this.x+x0, this.y+y0, x1-x0, y1-y0, null, 15);
         },
-        onMouseDown() {
+        onPointerDown(e) {
+          cx = min((sx+(e.x>>3))<<3, 128-cn);
+          cy = min((sy+(e.y>>3))<<3, 128-cn);
+        },
+        onPointerMove(e) {
+          if ((e.buttons&1) == 0)
+            return;
+          cx = min((sx+(e.x>>3))<<3, 128-cn);
+          cy = min((sy+(e.y>>3))<<3, 128-cn);
+        },
+        onWheel(e) {
+          if (e.deltaY <= -1)
+            sy = max(sy-1, 0);
+          else if (e.deltaY >= 1)
+            sy = min(sy+1, 8);
+          if (e.deltaX <= -1)
+            sx = max(sx-1, 0);
+          else if (e.deltaX >= 1)
+            sx = min(sx+1, 8);
         },
       },
-      { // tool button (fill)
-        x: 0, y: 28, w: 12, h: 12,
+      {
+        name: 'canvas',
+        x: 12, y: 16, w: 96, h: 96,
         onDraw() {
-          sys.char(17, 2+this.x, 2+this.y, 7);
+          // TODO implement using sprite scaling, clipping, etc.
+          sys.rect(this.x-1, this.y-1, this.w+2, this.h+2, null, 0);
+          for (let i = 0, y = cy; i < cn; ++i, ++y)
+            for (let j = 0, x = cx; j < cn; ++j, ++x)
+              sys.rect(this.x+j*cz, this.y+i*cz, cz, cz, sget(x, y));
         },
-        onMouseDown() {
+        onPointerDown(e) {
+          const x = cx+floor(e.x/cz), y = cy+floor(e.y/cz);
+          if (tool == 'draw')
+            draw(x, y, color);
+          else if (tool == 'fill')
+            fill(x, y, color);
+        },
+        onPointerMove(e) {
+          if ((e.buttons&1) == 0)
+            return;
+          if (tool == 'draw')
+            draw(cx+floor(e.x/cz), cy+floor(e.y/cz), color, true);
+        },
+        onWheel(e) {
+          if (e.deltaY <= -1)
+            cy = max(cy-(13-cz), 0);
+          else if (e.deltaY >= 1)
+            cy = min(cy+(13-cz), 128-cn);
+          if (e.deltaX <= -1)
+            cx = max(cx-(13-cz), 0);
+          else if (e.deltaX >= 1)
+            cx = min(cx+(13-cz), 128-cn);
         },
       },
-      { // tool button (select)
-        x: 0, y: 40, w: 12, h: 12,
+      {
+        name: 'menu',
+        x: 0, y: 7, w: 64, h: 121,
+        visible: false,
         onDraw() {
-          sys.char(19, 2+this.x, 2+this.y, 7);
+          sys.rect(this.x, this.y, this.w, this.h, 11, 5);
+          for (let i = 1; i < 8; ++i) {
+            //sys.rect(this.x, this.y+i*12, this.w, 12, i);
+            sys.line(this.x+1, this.y+i*12-1, this.x+this.w-2, this.y+i*12-1, 5)
+          }
+          sys.rect(this.x, this.y+4*12, this.w, 12, 5);
+          sys.text('Alpha 1', 4+this.x, 2+this.y, 5);
+          sys.text('Beta 2', 4+this.x, 2+this.y+1*12, 5);
+          sys.text('Gamma 3', 4+this.x, 2+this.y+2*12, 5);
+          sys.text('Delta 4', 4+this.x, 2+this.y+3*12, 5);
+          sys.text('Epsilon 5', 4+this.x, 2+this.y+4*12, 11);
+          sys.text('Zeta 6', 4+this.x, 2+this.y+5*12, 5);
+          sys.text('Eta 7', 4+this.x, 2+this.y+6*12, 5);
+          sys.text('Theta 8', 4+this.x, 2+this.y+7*12, 5);
         },
-        onMouseDown() {
-        },
-      },
-      { // tool button (pan)
-        x: 0, y: 52, w: 12, h: 12,
-        onDraw() {
-          sys.char(20, 2+this.x, 2+this.y, 7);
-        },
-        onMouseDown() {
-        },
-      },
-      { // tool button
-        x: 0, y: 64, w: 10, h: 12,
-        onDraw() {
-          //sys.char(0, 1+this.x, 2+this.y, 7);
-        },
-        onMouseDown() {
-        },
-      },
-      { // tool button (zoom out)
-        x: 0, y: 76, w: 10, h: 12,
-        onDraw() {
-          //sys.char(21, 1+this.x, 2+this.y, 7);
-        },
-        onMouseDown() {
-        },
-      },
-      { // tool button (zoom in)
-        x: 0, y: 88, w: 10, h: 12,
-        onDraw() {
-          //sys.char(22, 1+this.x, 2+this.y, 7);
-        },
-        onMouseDown() {
-        },
-      },
-      { // tool button (grid)
-        x: 0, y: 100, w: 10, h: 12,
-        onDraw() {
-          //sys.char(23, 1+this.x, 2+this.y, 7);
-        },
-        onMouseDown() {
-        },
-      },
-/*
-      { // temp button (load chars)
-        x:16, y: 128-16, w: 8, h: 8,
-        onDraw() {
-          sys.text('LC', this.x, this.y+1, 7);
-        },
-        onMouseDown() {
-          // TEMP for working on chars
-          console.log('load: chars --> sheet');
-          window.editCharset = true;
-          for (var n = 0; n < 128; ++n)
-            char2sprite(sys, n);
-          console.log(sys.memread(0x8000, 32*8));
-          console.log(sys.memread(0x8000+32*8, 96*8));
-        },
-      },
-      { // temp button (save chars)
-        x:32, y: 128-16, w: 8, h: 8,
-        onDraw() {
-          sys.text('SC', this.x, this.y+1, 7);
-        },
-        onMouseDown() {
-          // TEMP for working on chars
-          console.log('save: sheet --> chars');
-          window.editCharset = true;
-          for (var n = 0; n < 128; ++n)
-            sprite2char(sys, n);
-          console.log(sys.memread(0x8000, 32*8));
-          console.log(sys.memread(0x8000+32*8, 96*8));
-        },
-      },
-*/
-      { // menu button (menu)
-        x: 0, y: 0, w: 8, h: 9,
-        onDraw() {
-          sys.char(6, this.x, this.y, 5);
-        },
-        onMouseDown() {
-        },
-      },
-      { // menu button (undo)
-        x: 16, y: 0, w: 8, h: 9,
-        onDraw() {
-          sys.char(7, this.x, this.y, 5);
-        },
-        onMouseDown() {
-        },
-      },
-      { // menu button (redo)
-        x: 24, y: 0, w: 8, h: 9,
-        onDraw() {
-          sys.char(8, this.x, this.y, 5);
-        },
-        onMouseDown() {
-        },
-      },
-      { // menu button (cut)
-        x: 40, y: 0, w: 8, h: 9,
-        onDraw() {
-          sys.char(9, this.x, this.y, 5);
-        },
-        onMouseDown() {
-        },
-      },
-      { // menu button (copy)
-        x: 48, y: 0, w: 8, h: 9,
-        onDraw() {
-          sys.char(10, this.x, this.y, 5);
-        },
-        onMouseDown() {
-        },
-      },
-      { // menu button (paste)
-        x: 56, y: 0, w: 8, h: 9,
-        onDraw() {
-          sys.char(11, this.x, this.y, 5);
-        },
-        onMouseDown() {
-        },
-      },
-      { // menu button (code)
-        x: 152, y: 0, w: 8, h: 8,
-        onDraw() {
-          sys.char(1, this.x, this.y, 5);
-        },
-        onMouseDown() {
-          sys.vc(1);
-        },
-      },
-      { // menu button (sprite)
-        x: 160, y: 0, w: 8, h: 8,
-        onDraw() {
-          sys.char(2, this.x, this.y, 15);
-        },
-        onMouseDown() {
-          sys.vc(2);
-        },
-      },
-      { // menu button (map)
-        x: 168, y: 0, w: 8, h: 8,
-        onDraw() {
-          sys.char(3, this.x, this.y, 5);
-        },
-        onMouseDown() {
-          sys.vc(3);
-        },
-      },
-      { // menu button (sound)
-        x: 176, y: 0, w: 8, h: 8,
-        onDraw() {
-          sys.char(4, this.x, this.y, 5);
-        },
-        onMouseDown() {
-          sys.vc(4);
-        },
-      },
-      { // menu button (music)
-        x: 184, y: 0, w: 8, h: 8,
-        onDraw() {
-          sys.char(5, this.x, this.y, 5);
-        },
-        onMouseDown() {
-          sys.vc(5);
+        onPointerDown() {
         },
       },
     ], this);
@@ -324,7 +447,7 @@ module.exports = class SpriteEditor {
   // ---------------------------------------------------------------------------
 
   onResume() {
-    this.sys.memwrite(0x8000, '00221408142200000036222222360000001c2a3e3e2a0000003636003636000000080c2c3c3e0000001010101c1c0000007c007c007c00000010087c081000000010207c20100000002828106c6c0000003c7c4c4c78000000787c64643c0000000000000000000000000000000000000000000000000000000000000000000010387c3e1d090700102040fe7d391100000000000000000055004100410055001454547d7f7e3c007f41415d41417f007f41495d49417f007f557f557f557f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040604000000000404040400000000040c0400');
+    this.sys.memwrite(0x8000, '007c007c007c00000036222222360000001c2a3e3e2a0000003636003636000000080c2c3c3e0000001010101c1c00000000344c1c0000000000586470000000002828106c6c0000003c7c4c4c78000000787c64643c00000000000000000000000000000000000000000000000000000000000000000000000000000000000010387c3e1d090700102040fe7d391100001c1c08087f7f0055004100410055001454547d7f7e3c007f41495d49417f007f41415d41417f007f557f557f557f0000000008000000000000081c0800000000001c1c1c00000000081c3e1c080000001c3e3e3e1c0000081c3e7f3e1c08001c3e7f7f7f3e1c003e7f7f7f7f7f3e00');
   }
 
   onSuspend() {

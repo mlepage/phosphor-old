@@ -45,7 +45,7 @@ module.exports = class CodeEditor {
     
     // -------------------------------------------------------------------------
     
-    const am = new Action(redo, undo, merge, discard);
+    const am = new Action(redo, undo, merge);
     const pool = [];
     
     function action(t, l0, c0, l1, c1, t2) {
@@ -58,25 +58,23 @@ module.exports = class CodeEditor {
       return a;
     }
     
-    function discard(a) {
-      a.l2 = null;
-      pool.push(a);
-    }
-    
     function merge(a0, a1) {
       if (a0.t == a1.t) {
         if (a0.t == 'i' && a1.t2[0] != '\n' && a0.l2 == a1.l0 && a0.c2 == a1.c0) {
           a0.l2 = a1.l2, a0.c2 = a1.c2;
           a0.t2 += a1.t2;
-          return true;
+          a1.l2 = null;
+          pool.push(a1);
+          return a0;
         } else if (a0.t == 'b' && a1.t1[0] != '\n' && a0.l2 == a1.l1 && a0.c2 == a1.c1) {
           a0.l0 = a1.l0, a0.c0 = a1.c0;
           a0.l2 = a1.l2, a0.c2 = a1.c2;
           a0.t1 = a1.t1 + a0.t1;
-          return true;
+          a1.l2 = null;
+          pool.push(a1);
+          return a0;
         }
       }
-      return false;
     }
     
     function redo(a) {

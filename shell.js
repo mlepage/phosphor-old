@@ -27,6 +27,30 @@ CTRL+4   - sound editor
 CTRL+5   - music editor
 `;
 
+function sprite2char(sys, n) {
+  var a = 0x8000+(n<<3);
+  for (var y = 0; y < 8; ++y) {
+    var b = 0;
+    for (var x = 0; x < 8; ++x) {
+      const c = sys.sget(n, x, y);
+      if (c)
+        b |= (1<<x);
+    }
+    sys.poke(a++, b);
+  }
+}
+
+function char2sprite(sys, n) {
+  var a = 0x8000+(n<<3);
+  for (var y = 0; y < 8; ++y) {
+    var b = sys.peek(a++);
+    for (var x = 0; x < 8; ++x, b>>>=1) {
+      const c = (b&1)*15
+      sys.sset(n, x, y, c);
+    }
+  }
+}
+
 module.exports = class Shell {
 
   async main() {
@@ -109,6 +133,15 @@ module.exports = class Shell {
     this.sys.load(...args);
   }
 
+  async builtin_loadcs(...args) {
+    args.shift();
+    const sys = this.sys;
+    for (var n = 0; n < 128; ++n)
+      char2sprite(sys, n);
+    console.log(sys.memread(0x8000, 32*8));
+    console.log(sys.memread(0x8000+32*8, 96*8));
+  }
+
   async builtin_ls(...args) {
     args.shift();
     const result = this.sys.ls(args.shift());
@@ -158,17 +191,26 @@ module.exports = class Shell {
       this.sys.vc(7, process);
   }
 
+  async builtin_savecs(...args) {
+    args.shift();
+    const sys = this.sys;
+    for (var n = 0; n < 128; ++n)
+      sprite2char(sys, n);
+    console.log(sys.memread(0x8000, 32*8));
+    console.log(sys.memread(0x8000+32*8, 96*8));
+  }
+
   async builtin_scale(...args) {
     args.shift();
-    if (args.length == 0){
-      this.sys.write("usage: scale <factor>\n");
-    }else{
+    if (args.length == 0) {
+      this.sys.write('usage: scale <factor>\n');
+    } else {
       const factor = args.shift();
-      if (isNaN(Number(factor))){
-        this.sys.write("not a number\n");
-      }else{
+      if (isNaN(Number(factor))) {
+        this.sys.write('not a number\n');
+      } else {
         this.sys.scale(factor);
-        this.sys.write("scale applied\n");
+        this.sys.write('scale applied\n');
       }
     }
   }

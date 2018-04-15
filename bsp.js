@@ -128,41 +128,40 @@ function fsImport() {
   //document.body.removeChild(input);
 }
 
-function mouseClick(e) {
-  // TODO reuse object for event
+function pointerDown(e) {
   const rect = e.target.getBoundingClientRect();
-  this.onMouseClick({
-    x: round((e.clientX - rect.left) / this.bsp_scale),
-    y: round((e.clientY - rect.top) / this.bsp_scale)
-  });
+  const x = round((e.clientX - rect.left) / this.bsp_scale);
+  const y = round((e.clientY - rect.top) / this.bsp_scale);
+  const es = this.bsp_ePointer;
+  es.screenX = es.x = x;
+  es.screenY = es.y = y;
+  es.buttons = e.buttons;
+  this.onPointerDown(es);
+  e.preventDefault();
 }
 
-function mouseDown(e) {
-  // TODO reuse object for event
+function pointerMove(e) {
   const rect = e.target.getBoundingClientRect();
-  this.onMouseDown({
-    x: round((e.clientX - rect.left) / this.bsp_scale),
-    y: round((e.clientY - rect.top) / this.bsp_scale)
-  });
+  const x = round((e.clientX - rect.left) / this.bsp_scale);
+  const y = round((e.clientY - rect.top) / this.bsp_scale);
+  const es = this.bsp_ePointer;
+  es.screenX = es.x = x;
+  es.screenY = es.y = y;
+  es.buttons = e.buttons;
+  this.onPointerMove(es);
+  e.preventDefault();
 }
 
-function mouseMove(e) {
-  // TODO reuse object for event
+function pointerUp(e) {
   const rect = e.target.getBoundingClientRect();
-  this.onMouseMove({
-    x: round((e.clientX - rect.left) / this.bsp_scale),
-    y: round((e.clientY - rect.top) / this.bsp_scale),
-    buttons: e.buttons,
-  });
-}
-
-function mouseUp(e) {
-  // TODO reuse object for event
-  const rect = e.target.getBoundingClientRect();
-  this.onMouseUp({
-    x: round((e.clientX - rect.left) / this.bsp_scale),
-    y: round((e.clientY - rect.top) / this.bsp_scale)
-  });
+  const x = round((e.clientX - rect.left) / this.bsp_scale);
+  const y = round((e.clientY - rect.top) / this.bsp_scale);
+  const es = this.bsp_ePointer;
+  es.screenX = es.x = x;
+  es.screenY = es.y = y;
+  es.buttons = e.buttons;
+  this.onPointerUp(es);
+  e.preventDefault();
 }
 
 function screenClear(c) {
@@ -206,7 +205,7 @@ function touchEnd(e) {
   const e2 = this.bsp_eTouch = this.bsp_eTouch || { buttons: 1 };
   e2.x = round((e.changedTouches[0].clientX - rect.left) / this.bsp_scale);
   e2.y = round((e.changedTouches[0].clientY - rect.top) / this.bsp_scale);
-  this.onMouseUp(e2);
+  this.onPointerUp(e2);
 }
 
 function touchMove(e) {
@@ -215,7 +214,7 @@ function touchMove(e) {
   const e2 = this.bsp_eTouch = this.bsp_eTouch || { buttons: 1 };
   e2.x = round((e.touches[0].clientX - rect.left) / this.bsp_scale);
   e2.y = round((e.touches[0].clientY - rect.top) / this.bsp_scale);
-  this.onMouseMove(e2);
+  this.onPointerMove(e2);
 }
 
 function touchStart(e) {
@@ -224,7 +223,7 @@ function touchStart(e) {
   const e2 = this.bsp_eTouch = this.bsp_eTouch || {};
   e2.x = round((e.touches[0].clientX - rect.left) / this.bsp_scale);
   e2.y = round((e.touches[0].clientY - rect.top) / this.bsp_scale);
-  this.onMouseDown(e2);
+  this.onPointerDown(e2);
 }
 
 function wheel(e) {
@@ -317,6 +316,9 @@ module.exports = {
     micro.bsp_texture = texture;
     micro.bsp_scale = scale; // TODO get scale from micro
     
+    // shadow events
+    micro.bsp_ePointer = { screenX: 0, screenY: 0, x: 0, y: 0, buttons: 0 };
+    
     micro.bspScreenFlip = (vram) => {
       gl.texImage2D(gl.TEXTURE_2D, texture, gl.LUMINANCE, 96, 128, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, vram);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -336,13 +338,14 @@ module.exports = {
     document.addEventListener('cut', micro.onCut.bind(micro));
     document.addEventListener('paste', micro.onPaste.bind(micro));
     
+    // for testing click
+    //canvas.addEventListener('click', (e) => {console.log('click', e)});
+    
     canvas.addEventListener('keydown', micro.onKeyDown.bind(micro));
     canvas.addEventListener('keyup', micro.onKeyUp.bind(micro));
-    canvas.addEventListener('click', mouseClick.bind(micro));
-    canvas.addEventListener('mousedown', mouseDown.bind(micro));
-    canvas.addEventListener('mousemove', mouseMove.bind(micro));
-    canvas.addEventListener('mouseup', mouseUp.bind(micro));
-    //canvas.addEventListener('paste', micro.onPaste.bind(micro));
+    canvas.addEventListener('pointerdown', pointerDown.bind(micro));
+    canvas.addEventListener('pointermove', pointerMove.bind(micro));
+    canvas.addEventListener('pointerup', pointerUp.bind(micro));
     canvas.addEventListener('touchstart', touchStart.bind(micro));
     canvas.addEventListener('touchmove', touchMove.bind(micro));
     canvas.addEventListener('touchend', touchEnd.bind(micro));
