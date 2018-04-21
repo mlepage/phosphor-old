@@ -1074,30 +1074,30 @@ module.exports = class Phosphor {
       if (!e.altKey && !e.metaKey && !e.shiftKey) {
         if (e.code == 'Backquote') {
           this.sys.vc(0); e.preventDefault(); return;
-        } else if (e.code == 'Digit1') {
+        } else if (e.keyCode == 49) {
           this.sys.vc(1); e.preventDefault(); return;
-        } else if (e.code == 'Digit2') {
+        } else if (e.keyCode == 50) {
           this.sys.vc(2); e.preventDefault(); return;
-        } else if (e.code == 'Digit3') {
+        } else if (e.keyCode == 51) {
           this.sys.vc(3); e.preventDefault(); return;
-        } else if (e.code == 'Digit4') {
+        } else if (e.keyCode == 52) {
           this.sys.vc(4); e.preventDefault(); return;
-        } else if (e.code == 'Digit5') {
+        } else if (e.keyCode == 53) {
           this.sys.vc(5); e.preventDefault(); return;
-        } else if (e.code == 'Digit7') {
+        } else if (e.keyCode == 54) {
           this.sys.vc(7); e.preventDefault(); return;
-        } else if (e.code == 'Digit8') {
+        } else if (e.keyCode == 55) {
           this.sys.vc(8); e.preventDefault(); return;
-        } else if (e.code == 'Digit9') {
+        } else if (e.keyCode == 56) {
           this.sys.vc(9); e.preventDefault(); return;
-        } else if (e.code == 'Digit0') {
+        } else if (e.keyCode == 57) {
           this.sys.vc(10); e.preventDefault(); return;
         }
       }
       if (e.key != 'z' && e.key != 'Z')
         return;
     }
-    if (e.key == 'Escape') {
+    if (e.key == 'Escape' || e.key == 'Esc') {
       this.sys.vc(this.vc == this.VC[0] ? this.editor : 0);
       e.preventDefault();
       this.onDraw();

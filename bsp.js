@@ -253,7 +253,7 @@ module.exports = {
     document.body.insertBefore(canvas, document.body.childNodes[0]);
     canvas.focus();
     
-    const gl = canvas.getContext('webgl');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
     
     const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSrc);
     const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSrc);
