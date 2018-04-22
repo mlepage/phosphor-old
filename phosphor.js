@@ -5,6 +5,28 @@
 
 const abs = Math.abs, floor = Math.floor;
 
+// https://developer.microsoft.com/en-us/microsoft-edge/platform/issues/8860571/
+const edgeKeyFix = {
+  Down: 'ArrowDown',
+  Esc: 'Escape',
+  Left: 'ArrowLeft',
+  Right: 'ArrowRight',
+  Up: 'ArrowUp',
+};
+const edgeKey = { preventDefault: function() { this.wrappedEvent.preventDefault(); } };
+function fixKeyEvent(e) {
+  if (edgeKeyFix[e.key] === undefined)
+    return e;
+  edgeKey.wrappedEvent = e;
+  edgeKey.key = edgeKeyFix[e.key];
+  edgeKey.keyCode = e.keyCode;
+  edgeKey.altKey = e.altKey;
+  edgeKey.ctrlKey = e.ctrlKey;
+  edgeKey.metaKey = e.metaKey;
+  edgeKey.shiftKey = e.shiftKey;
+  return edgeKey;
+}
+
 const toHex = [
   '0', '1', '2', '3', '4', '5', '6', '7',
   '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
@@ -1070,6 +1092,7 @@ module.exports = class Phosphor {
   }
 
   onKeyDown(e) {
+    e = fixKeyEvent(e);
     if (e.ctrlKey) {
       if (!e.altKey && !e.metaKey && !e.shiftKey) {
         if (e.code == 'Backquote') {
@@ -1097,7 +1120,7 @@ module.exports = class Phosphor {
       if (e.key != 'z' && e.key != 'Z')
         return;
     }
-    if (e.key == 'Escape' || e.key == 'Esc') {
+    if (e.key == 'Escape') {
       this.sys.vc(this.vc == this.VC[0] ? this.editor : 0);
       e.preventDefault();
       this.onDraw();
@@ -1113,6 +1136,7 @@ module.exports = class Phosphor {
   }
 
   onKeyUp(e) {
+    //e = fixKeyEvent(e);
     if (e.key.length == 1) {
       const keycode = e.key.charCodeAt();
       delete this.keyp[keycode];
@@ -1150,6 +1174,11 @@ module.exports = class Phosphor {
   }
 
   onWheel(e) {
+    // Firefox can give 0.75 always so fix it up
+    if (abs(e.deltaX) == 0.75)
+      e.deltaX *= 4/3;
+    if (abs(e.deltaY) == 0.75)
+      e.deltaY *= 4/3;
     if (this.vc.onWheel) this.vc.onWheel(e);
     this.onDraw();
   }

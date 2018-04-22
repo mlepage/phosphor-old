@@ -7,6 +7,10 @@ const Phosphor = require('./phosphor.js');
 
 const round = Math.round;
 
+const wheelName = 'onwheel' in document.createElement('div') ? 'wheel' : 'mousewheel';
+
+const compatWhichToButtons = [ 0, 1, 4, 2 ];
+
 // TODO get palette from micro
 const palette = [ // Dawnbringer
   '#140c1c', '#442434', '#30346d', '#4e4a4e',
@@ -135,7 +139,7 @@ function pointerDown(e) {
   const es = this.bsp_ePointer;
   es.screenX = es.x = x;
   es.screenY = es.y = y;
-  es.buttons = e.buttons;
+  es.buttons = (e.buttons !== undefined) ? e.buttons : compatWhichToButtons[e.which];
   this.onPointerDown(es);
   e.preventDefault();
 }
@@ -147,7 +151,7 @@ function pointerMove(e) {
   const es = this.bsp_ePointer;
   es.screenX = es.x = x;
   es.screenY = es.y = y;
-  es.buttons = e.buttons;
+  es.buttons = (e.buttons !== undefined) ? e.buttons : compatWhichToButtons[e.which];
   this.onPointerMove(es);
   e.preventDefault();
 }
@@ -159,7 +163,7 @@ function pointerUp(e) {
   const es = this.bsp_ePointer;
   es.screenX = es.x = x;
   es.screenY = es.y = y;
-  es.buttons = e.buttons;
+  es.buttons = (e.buttons !== undefined) ? e.buttons : compatWhichToButtons[e.which];
   this.onPointerUp(es);
   e.preventDefault();
 }
@@ -343,14 +347,23 @@ module.exports = {
     
     canvas.addEventListener('keydown', micro.onKeyDown.bind(micro));
     canvas.addEventListener('keyup', micro.onKeyUp.bind(micro));
-    canvas.addEventListener('pointerdown', pointerDown.bind(micro));
-    canvas.addEventListener('pointermove', pointerMove.bind(micro));
-    canvas.addEventListener('pointerup', pointerUp.bind(micro));
+    if (window.PointerEvent) {
+      console.log('using pointer events');
+      canvas.addEventListener('pointerdown', pointerDown.bind(micro));
+      canvas.addEventListener('pointermove', pointerMove.bind(micro));
+      canvas.addEventListener('pointerup', pointerUp.bind(micro));
+    } else {
+      console.log('using mouse events');
+      canvas.addEventListener('mousedown', pointerDown.bind(micro));
+      canvas.addEventListener('mousemove', pointerMove.bind(micro));
+      canvas.addEventListener('mouseup', pointerUp.bind(micro));
+    }
     canvas.addEventListener('touchstart', touchStart.bind(micro));
     canvas.addEventListener('touchmove', touchMove.bind(micro));
     canvas.addEventListener('touchend', touchEnd.bind(micro));
     canvas.addEventListener('touchcancel', touchCancel.bind(micro));
-    canvas.addEventListener('wheel', wheel.bind(micro));
+    console.log('using wheel event:', wheelName);
+    canvas.addEventListener(wheelName, wheel.bind(micro));
     
     return micro;
   }
