@@ -73,11 +73,8 @@ const fragmentShaderSrc = `
   uniform sampler2D u_palette;
   
   void main() {
-    // low nibble (0) is even col, high nibble (1) is odd col
-    float nibble = floor(mod(v_texcoord.x*192.0, 2.0));
-    float byte = 255.0 * texture2D(u_texture, v_texcoord).r;
-    float index = mod(byte / (1.0+nibble*15.0), 16.0);
-    gl_FragColor = texture2D(u_palette, vec2(index/16.0, 0));
+    float index = texture2D(u_texture, v_texcoord).r;
+    gl_FragColor = texture2D(u_palette, vec2(index, 0));
   }
 `;
 
@@ -323,8 +320,15 @@ module.exports = {
     // shadow events
     micro.bsp_ePointer = { screenX: 0, screenY: 0, x: 0, y: 0, buttons: 0 };
     
+    const bsp_vram = new Uint8Array(192*128);
+    
     micro.bspScreenFlip = (vram) => {
-      gl.texImage2D(gl.TEXTURE_2D, texture, gl.LUMINANCE, 96, 128, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, vram);
+      for (let i = 0, j = 0; i < 0x3000; ++i) {
+        const byte = vram[i];
+        bsp_vram[j++] = (byte&0xf)<<4;
+        bsp_vram[j++] = byte&0xf0;
+      }
+      gl.texImage2D(gl.TEXTURE_2D, texture, gl.LUMINANCE, 192, 128, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, bsp_vram);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     };
     
