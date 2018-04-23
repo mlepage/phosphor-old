@@ -1016,12 +1016,22 @@ module.exports = class Phosphor {
     }
     if (os.vc.onUpdate) {
       os.frame = 0;
-      os.vc.onUpdate();
-      os.vc.onDraw();
-      os.frame++;
-      os.interval = setInterval(() => {
+      try {
         os.vc.onUpdate();
         os.vc.onDraw();
+      } catch (e) {
+        this.vc(0);
+        return;
+      }
+      os.frame++;
+      os.interval = setInterval(() => {
+        try {
+          os.vc.onUpdate();
+          os.vc.onDraw();
+        } catch (e) {
+          os.sys.vc(0);
+          return;
+        }
         os.frame++;
         if (os.keyr.length != 0)
           os.keyr = []; // TODO performance

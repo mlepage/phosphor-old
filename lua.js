@@ -201,6 +201,9 @@ module.exports = class Lua {
     delete window.__sys_text;
     delete window.__sys_write;
     
+    // HACK memory
+    this.memcart = this.sys.memread(0x3000, 0x4400);
+    
     // HACK to choose code to run
     var code = sys._os.filesystem[`phosphor:/${args[1]}`];
     if (!code)
@@ -208,10 +211,22 @@ module.exports = class Lua {
     if (!code)
       return;
     
-    this.L.execute(`co = coroutine.wrap(function() ${code} js.global.__lua_done = true js.global.__lua_draw = draw ~= nil js.global.__lua_update = update ~= nil end)`);
+    try {
+      this.L.execute(`co = coroutine.wrap(function() ${code} js.global.__lua_done = true js.global.__lua_draw = draw ~= nil js.global.__lua_update = update ~= nil end)`);
+    } catch (e) {
+      console.log(e);
+      this.sys.write(e.message.slice(13), '\n'); // skip '[string "?"]:'
+      return;
+    }
     
     while (true) {
-      this.L.execute('co()');
+      try {
+        this.L.execute('co()');
+      } catch (e) {
+        console.log(e);
+        this.sys.write(e.message.slice(13), '\n'); // skip '[string "?"]:'
+        return;
+      }
       if (window.__lua_done) {
         delete window.__lua_done;
         if (window.__lua_draw) {
@@ -227,17 +242,48 @@ module.exports = class Lua {
       // TODO assuming read, need to pass on args
       window.__lua_read = await sys.read();
     }
+    
+    // HACK memory
+    this.memsave = this.sys.memread(0x3000, 0x4400);
   }
 
   // ---------------------------------------------------------------------------
 
   _onDraw() {
-    this.L.execute('draw()');
+    try {
+      this.L.execute('draw()');
+    } catch (e) {
+      console.log(e);
+      delete this.onDraw;
+      this.sys.write(e.message.slice(13), '\n'); // skip '[string "?"]:'
+      throw 'draw failed';
+      return;
+    }
     this.sys._os.bspScreenFlip(this.sys._os.mem); // TODO better place for this
   }
 
   _onUpdate() {
-    this.L.execute('update()');
+    try {
+      this.L.execute('update()');
+    } catch (e) {
+      console.log(e);
+      delete this.onUpdate;
+      this.sys.write(e.message.slice(13), '\n'); // skip '[string "?"]:'
+      throw 'update failed';
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+
+  onResume() {
+    // HACK memory
+    this.sys.memwrite(0x3000, this.memsave);
+  }
+
+  onSuspend() {
+    // HACK memory
+    this.memsave = this.sys.memread(0x3000, 0x4400);
+    this.sys.memwrite(0x3000, this.memcart);
   }
 
 };
