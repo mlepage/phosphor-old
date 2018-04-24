@@ -987,7 +987,7 @@ module.exports = class Phosphor {
       switch (id) {
         case 0:
           os.vc = this.spawn('terminal');
-          os.vc.write("console           type 'help' for help\n\n");
+          os.vc.write("phosphor          type 'help' for help\n\n");
           os.vc.setProcess(this.spawn('shell'));
           break;
         case 1: os.vc = this.spawn('code-editor'); break;
