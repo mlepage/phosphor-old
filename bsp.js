@@ -165,34 +165,33 @@ function pointerUp(e) {
   e.preventDefault();
 }
 
-function screenClear(c) {
-  this.bsp_ctx.fillStyle = palette[c];
-  this.bsp_ctx.fillRect(0, 0, this.bsp_canvas.width, this.bsp_canvas.height);
-}
-
-function screenPixel(x, y, c) {
-  const scale = this.bsp_scale;
-  this.bsp_ctx.fillStyle = palette[c];
-  this.bsp_ctx.fillRect(scale*x, scale*y, scale, scale);
-}
-
-function screenRect(x, y, w, h, c) {
-  const scale = this.bsp_scale;
-  this.bsp_ctx.fillStyle = palette[c];
-  this.bsp_ctx.fillRect(scale*x, scale*y, scale*w, scale*h);
-}
-
-function screenRectO(x, y, w, h, c) {
-  const scale = this.bsp_scale;
-  this.bsp_ctx.strokeStyle = palette[c];
-  this.bsp_ctx.strokeRect(scale*(x+0.5), scale*(y+0.5), scale*(w-1), scale*(h-1));
-}
-
 function screenScale(scale) {
+  const fullscreen = scale == 0;
+  if (fullscreen) {
+    if (this.bsp_fullscreen)
+      return;
+    let w = window.innerWidth;
+    let h = window.innerHeight;
+    let r = w/h;
+    scale = (r <= 1.5) ? w/192: h/128;
+    this.bsp_fullscreen = this.bsp_scale;
+  } else {
+    delete this.bsp_fullscreen;
+    if (this.bsp_scale == scale)
+      return;
+  }
   this.bsp_scale = scale;
   this.bsp_canvas.width = scale*192;
   this.bsp_canvas.height = scale*128;
   this.bsp_gl.viewport(0, 0, scale*192, scale*128);
+  console.log('scale:', scale, this.bsp_canvas.width, this.bsp_canvas.height, fullscreen)
+  if (fullscreen) {
+    this.bsp_canvas.style.position = 'fixed';
+    this.bsp_canvas.style.left = (window.innerWidth-this.bsp_canvas.width)/2 + 'px';
+    this.bsp_canvas.style.top = (window.innerHeight-this.bsp_canvas.height)/2 + 'px';
+  } else {
+    this.bsp_canvas.style.position = 'static';
+  }
   this.onDraw();
 }
 
@@ -336,10 +335,6 @@ module.exports = {
     micro.bspExport = fileExport;
     micro.bspImport = fileImport;
     micro.bspImportFs = fsImport;
-    micro.bspScreenClear = screenClear;
-    micro.bspScreenPixel = screenPixel;
-    micro.bspScreenRect = screenRect;
-    micro.bspScreenRectO = screenRectO;
     micro.bspScreenScale = screenScale;
     
     document.addEventListener('copy', micro.onCopy.bind(micro));
