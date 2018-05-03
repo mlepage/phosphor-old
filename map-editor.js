@@ -132,6 +132,7 @@ module.exports = class MapEditor {
           sys.char(17, 1+this.x, 2+this.y, 7);
         },
         onMouseDown() {
+          alert('not yet implemented');
         },
       },
       { // tool button (select)
@@ -140,6 +141,7 @@ module.exports = class MapEditor {
           sys.char(19, 1+this.x, 2+this.y, 7);
         },
         onMouseDown() {
+          alert('not yet implemented');
         },
       },
       { // tool button (pan)
@@ -148,6 +150,7 @@ module.exports = class MapEditor {
           sys.char(20, 1+this.x, 2+this.y, 7);
         },
         onMouseDown() {
+          alert('not yet implemented');
         },
       },
       { // tool button
@@ -184,6 +187,7 @@ module.exports = class MapEditor {
           sys.char(23, 1+this.x, 2+this.y, 7);
         },
         onMouseDown() {
+          alert('not yet implemented');
         },
       },
       { // splitter button (left)
@@ -231,12 +235,31 @@ module.exports = class MapEditor {
           ui.split_right.x = ui.sheet.x-5;
         },
       },
+      { // temp scroll left
+        x: 32, y: 121, w: 5, h: 7,
+        onDraw() {
+          sys.char('<', this.x, this.y, 11, 5);
+        },
+        onMouseDown() {
+          mapX = max(mapX-(1<<(3-zoom)), 0);
+        },
+      },
+      { // temp scroll right
+        x: 96, y: 121, w: 5, h: 7,
+        onDraw() {
+          sys.char('>', this.x, this.y, 11, 5);
+        },
+        onMouseDown() {
+          mapX = min(mapX+(1<<(3-zoom)), max(96-(mapW<<(3-zoom)), 0));
+        },
+      },
       { // menu button (menu)
         x: 0, y: 0, w: 8, h: 9,
         onDraw() {
           sys.char(6, this.x, this.y, 5);
         },
         onMouseDown() {
+          alert('not yet implemented');
         },
       },
       { // menu button (undo)
@@ -245,6 +268,7 @@ module.exports = class MapEditor {
           sys.char(7, this.x, this.y, 5);
         },
         onMouseDown() {
+          alert('not yet implemented');
         },
       },
       { // menu button (redo)
@@ -253,6 +277,7 @@ module.exports = class MapEditor {
           sys.char(8, this.x, this.y, 5);
         },
         onMouseDown() {
+          alert('not yet implemented');
         },
       },
       { // menu button (cut)
@@ -261,6 +286,7 @@ module.exports = class MapEditor {
           sys.char(9, this.x, this.y, 5);
         },
         onMouseDown() {
+          alert('not yet implemented');
         },
       },
       { // menu button (copy)
@@ -269,6 +295,7 @@ module.exports = class MapEditor {
           sys.char(10, this.x, this.y, 5);
         },
         onMouseDown() {
+          alert('not yet implemented');
         },
       },
       { // menu button (paste)
@@ -277,6 +304,7 @@ module.exports = class MapEditor {
           sys.char(11, this.x, this.y, 5);
         },
         onMouseDown() {
+          alert('not yet implemented');
         },
       },
       { // menu button (code)

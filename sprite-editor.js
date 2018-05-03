@@ -169,7 +169,7 @@ module.exports = class SpriteEditor {
               sys.char(8, this.x, this.y, 5);
             },
             onPointerDown() {
-              console.log('<cut>');
+              alert('not yet implemented');
             },
           },
           {
@@ -179,7 +179,7 @@ module.exports = class SpriteEditor {
               sys.char(9, this.x, this.y, 5);
             },
             onPointerDown() {
-              console.log('<copy>');
+              alert('not yet implemented');
             },
           },
           {
@@ -189,7 +189,7 @@ module.exports = class SpriteEditor {
               sys.char(10, this.x, this.y, 5);
             },
             onPointerDown() {
-              console.log('<paste>');
+              alert('not yet implemented');
             },
           },
           {
@@ -272,7 +272,8 @@ module.exports = class SpriteEditor {
               sys.char(18, 2+this.x, 2+this.y, tool == 'stamp' ? 10 : 7);
             },
             onPointerDown() {
-              tool = 'stamp';
+              alert('not yet implemented');
+              //tool = 'stamp';
             },
           },
           {
@@ -282,7 +283,8 @@ module.exports = class SpriteEditor {
               sys.char(19, 2+this.x, 2+this.y, tool == 'select' ? 10 : 7);
             },
             onPointerDown() {
-              tool = 'select';
+              alert('not yet implemented');
+              //tool = 'select';
             },
           },
           {
@@ -292,7 +294,8 @@ module.exports = class SpriteEditor {
               sys.char(20, 2+this.x, 2+this.y, tool == 'pan' ? 10 : 7);
             },
             onPointerDown() {
-              tool = 'pan';
+              alert('not yet implemented');
+              //tool = 'pan';
             },
           },
           {
@@ -327,7 +330,7 @@ module.exports = class SpriteEditor {
               sys.char(23, 2+this.x, 2+this.y, 7);
             },
             onPointerDown() {
-              console.log('grid pressed');
+              alert('not yet implemented');
             },
           },
         ],
