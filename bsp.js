@@ -364,6 +364,8 @@ module.exports = {
     console.log('using wheel event:', wheelName);
     canvas.addEventListener(wheelName, wheel.bind(micro));
     
+    canvas.onblur = () => { canvas.focus(); } // keep focus
+    
     return micro;
   }
 
