@@ -3,28 +3,28 @@
 
 'use strict';
 
-const helpText = `help     - show commands
-mkdir    - make directory
-rmdir    - remove directory
-cd       - change directory
-ls       - list files in directory
-mv       - move file
-rm       - remove file
-load     - load program file
-run      - run program file
-export   - save file to host
-import   - load file from host
-exportfs - save filesystem to host
-importfs - load filesystem from host
-scale    - change host scale factor
+const helpText = `help      - show commands
+mkdir     - make directory
+rmdir     - remove directory
+cd        - change directory
+ls        - list files in directory
+mv        - move file
+rm        - remove file
+load      - load program file
+run       - run program file
+export    - save file to host
+import    - load file from host
+exportfs  - save filesystem to host
+importfs  - load filesystem from host
+scale     - change host scale factor
 
-ESC      - toggle console/editor
-CTRL+0   - console (command line)
-CTRL+1   - code editor
-CTRL+2   - sprite editor
-CTRL+3   - map editor
-CTRL+4   - sound editor
-CTRL+5   - music editor
+ESC         - toggle console/editor
+CTRL+ALT+\`  - console (cmd line)
+CTRL+ALT+1  - code editor
+CTRL+ALT+2  - sprite editor
+CTRL+ALT+3  - map editor
+CTRL+ALT+4  - sound editor
+CTRL+ALT+5  - music editor
 `;
 
 function sprite2char(sys, n) {
