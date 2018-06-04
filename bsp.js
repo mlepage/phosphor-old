@@ -129,6 +129,41 @@ function fsImport() {
   //document.body.removeChild(input);
 }
 
+// Fixes for e.key
+// Edge screws up escape and arrow keys
+// https://developer.microsoft.com/en-us/microsoft-edge/platform/issues/8860571/
+// Chrome screws up backquote and digit2 (unidentified if control is pressed)
+const fixUnidentified = { 'Backquote': '`', 'Digit2': '2' }
+const fixKey = {
+  'Esc': 'Escape',
+  'Up': 'ArrowUp',
+  'Down': 'ArrowDown',
+  'Left': 'ArrowLeft',
+  'Right': 'ArrowRight',
+  'Unidentified': (e) => { return fixUnidentified[e.code] || 'Unidentified'; }
+}
+
+function shadowKey(es, e) {
+  es.raw = e;
+  es.key = fixKey[e.key] || e.key;
+  if (typeof es.key == 'function')
+    es.key = es.key(e);
+  es.code = e.code;
+  es.ctrlKey = e.ctrlKey;
+  es.shiftKey = e.shiftKey;
+  es.altKey = e.altKey;
+  es.metaKey = e.metaKey;
+  return es;
+}
+
+function keyDown(e) {
+  this.onKeyDown(shadowKey(this.bsp_eKey, e));
+}
+
+function keyUp(e) {
+  this.onKeyUp(shadowKey(this.bsp_eKey, e));
+}
+
 function pointerDown(e) {
   const rect = e.target.getBoundingClientRect();
   const x = round((e.clientX - rect.left) / this.bsp_scale);
@@ -317,6 +352,8 @@ module.exports = {
     micro.bsp_scale = scale; // TODO get scale from micro
     
     // shadow events
+    micro.bsp_eKey = { raw: null, key: '', code: '', ctrlKey: false, shiftKey: false, altKey: false, metaKey: false };
+    micro.bsp_eKey.preventDefault = function() { this.raw.preventDefault(); }
     micro.bsp_ePointer = { screenX: 0, screenY: 0, x: 0, y: 0, buttons: 0 };
     
     const bsp_vram = new Uint8Array(192*128);
@@ -344,7 +381,7 @@ module.exports = {
     // for testing click
     //canvas.addEventListener('click', (e) => {console.log('click', e)});
     
-    canvas.addEventListener('keydown', micro.onKeyDown.bind(micro));
+    canvas.addEventListener('keydown', keyDown.bind(micro));
     canvas.addEventListener('keyup', micro.onKeyUp.bind(micro));
     if (window.PointerEvent) {
       console.log('using pointer events');

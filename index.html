@@ -90,14 +90,24 @@ mget(x, y) -- get map value at cell x,y
 mset(x, y, n) -- set map value at cell x,y
 </pre>
 
-<p>Input, for printable ASCII keys only (e.g. 'y' or 'n' but not cursor or shift), can be obtained like:</p>
+<p>Keyboard state can be obtained like:</p>
 
 <pre>
-keyp('y') -- true the first frame key 'y' is pressed
-keyr('y') -- true the first frame key 'y' is released
-key('y') -- true all frames key 'y' is being pressed
-key('y', delay, rate) -- true if key 'y' is repeating, which occurs:
-    -- first frame, after delay frames, then every rate frames)
+keyp('a') -- true the first frame key 'a' is pressed
+keyr('a') -- true the first frame key 'a' is released
+key('a') -- true all frames key 'a' is being pressed
+</pre>
+
+<p>The 62 key names are (currently):</p>
+
+<pre>
+- 0 to 9
+- ` - = [ ] \ ; ' , . /
+- a to z
+- space tab enter backspace capslock
+- up down left right
+- lctrl lshift lalt
+- rctrl rshift ralt
 </pre>
 
 <p>Memory access:</p>

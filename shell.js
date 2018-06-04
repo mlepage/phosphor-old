@@ -188,7 +188,7 @@ module.exports = class Shell {
     const process = this.sys.spawn('lua', ...args);
     await process.sys._main;
     if (process.onUpdate)
-      this.sys.vc(7, process);
+      this.sys.vc(10, process);
   }
 
   async builtin_savecs(...args) {

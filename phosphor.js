@@ -5,27 +5,40 @@
 
 const abs = Math.abs, floor = Math.floor;
 
-// https://developer.microsoft.com/en-us/microsoft-edge/platform/issues/8860571/
-const edgeKeyFix = {
-  Down: 'ArrowDown',
-  Esc: 'Escape',
-  Left: 'ArrowLeft',
-  Right: 'ArrowRight',
-  Up: 'ArrowUp',
+const phKeyCodes = {
+  0:0, 1:1, 2:2, 3:3, 4:4,
+  5:5, 6:6, 7:7, 8:8, 9:9,
+  '`':10, '-':11, '=':12,
+  '[':13, ']':14, '\\':15,
+  ';':16, "'":17,
+  ',':18, '.':19, '/':20,
+  a:21, b:22, c:23, d:24, e:25,
+  f:26, g:27, h:28, i:29, j:30,
+  k:31, l:32, m:33, n:34, o:35,
+  p:36, q:37, r:38, s:39, t:40,
+  u:41, v:42, w:43, x:44, y:45, z:46,
+  space:47, tab:48, enter:49, backspace:50, capslock:51,
+  up:52, down:53, left:54, right:55,
+  lctrl:56, lshift:57, lalt:58,
+  rctrl:59, rshift:60, ralt:61,
 };
-const edgeKey = { preventDefault: function() { this.wrappedEvent.preventDefault(); } };
-function fixKeyEvent(e) {
-  if (edgeKeyFix[e.key] === undefined)
-    return e;
-  edgeKey.wrappedEvent = e;
-  edgeKey.key = edgeKeyFix[e.key];
-  edgeKey.keyCode = e.keyCode;
-  edgeKey.altKey = e.altKey;
-  edgeKey.ctrlKey = e.ctrlKey;
-  edgeKey.metaKey = e.metaKey;
-  edgeKey.shiftKey = e.shiftKey;
-  return edgeKey;
-}
+const jsKeyCodes = {
+  Digit0:0, Digit1:1, Digit2:2, Digit3:3, Digit4:4,
+  Digit5:5, Digit6:6, Digit7:7, Digit8:8, Digit9:9,
+  Backquote:10, Minus:11, Equal:12,
+  BracketLeft:13, BracketRight:14, Backslash:15,
+  Semicolon:16, Quote:17,
+  Comma:18, Period:19, Slash:20,
+  KeyA:21, KeyB:22, KeyC:23, KeyD:24, KeyE:25,
+  KeyF:26, KeyG:27, KeyH:28, KeyI:29, KeyJ:30,
+  KeyK:31, KeyL:32, KeyM:33, KeyN:34, KeyO:35,
+  KeyP:36, KeyQ:37, KeyR:38, KeyS:39, KeyT:40,
+  KeyU:41, KeyV:42, KeyW:43, KeyX:44, KeyY:45, KeyZ:46,
+  Space:47, Tab:48, Enter:49, Backspace:50, CapsLock:51,
+  ArrowUp:52, ArrowDown:53, ArrowLeft:54, ArrowRight:55,
+  ControlLeft:56, ShiftLeft:57, AltLeft:58,
+  ControlRight:59, ShiftRight:60, AltRight:61,
+};
 
 const toHex = [
   '0', '1', '2', '3', '4', '5', '6', '7',
@@ -53,6 +66,26 @@ const H = 128; // for graphics
 const CROM = '00000000000000000004040400040000000a0a0000000000000a0e0a0e0a0000000e060c0e040000000a0804020a000000040a060a16000000040400000000000008040404080000000408080804000000000a040a0000000000040e0400000000000000000402000000000e0000000000000000000400000010180c06020000000c1a16120c000000040604040e0000000e100c021e0000000e100c100e0000000a0a1e08080000001e020e100e0000001c020e120c0000001e100804040000000c120c120c0000000c121c100c000000000004000400000000000400040200000804020408000000000e000e0000000004081008040000000e100c00040000000c121a021c0000000c12121e120000000e120e120e0000000c1202120c0000000e1212120e0000001e020e021e0000001e020e02020000001c021a121c00000012121e12120000000e0404040e0000001c1010120c000000120a060a12000000020202021e0000001e1a12121200000012161a12120000000c1212120c0000000e12120e020000000c1212120c1000000e12120e120000001c020c100e0000001e04040404000000121212120c0000001212120a04000000121212161e00000012120c121200000012121c100c0000001e1008041e0000000c0404040c00000002060c18100000000c0808080c000000040a000000000000000000001e0000000004080000000000001c12121c000000020e12120e000000001c02021c000000101c12121c000000000c1a060c00000018041e0404000000000c121c100c0000020e12121200000008000c081c00000010001810120c000002120e12120000000604040418000000001e1a1212000000000e121212000000000c12120c000000000e12120e020000001c12121c100000001c020202000000001c04080e000000041e040418000000001212120c0000000012120a04000000001212161e00000000120c12120000000012121c100c0000001e08041e0000000c0406040c00000004040404040000000c0818080c00000000140a000000000808050705070507';
 
 const mrom = {}; // module rom
+
+function bitset(mem, base, pos) {
+  const addr = base + (pos>>3);
+  mem[addr] |= (1<<(pos&7));
+}
+
+function bitclear(mem, base, pos) {
+  const addr = base + (pos>>3);
+  mem[addr] &= ~(1<<(pos&7));
+}
+
+function bitflip(mem, base, pos) {
+  const addr = base + (pos>>3);
+  mem[addr] ^= (1<<(pos&7));
+}
+
+function bittest(mem, base, pos) {
+  const addr = base + (pos>>3);
+  return (mem[addr] & (1<<(pos&7))) ? true : false;
+}
 
 const systraceEnable = {
   'beep': true,
@@ -328,6 +361,8 @@ module.exports = class Phosphor {
     
     this.mem = new Uint8Array(0x8400); // 32 KiB RAM + 1 KiB ROM
     
+    this.iomem = new Uint8Array(32); // TEMP io memory map
+
     this.filesystem = filesystem; // HACK
     
     // TODO syscall object could probably be global (reuse per computer)
@@ -520,28 +555,25 @@ module.exports = class Phosphor {
     systrace('input', this, arguments);
   }
 
-  syscall_key(keycode, delay, rate) {
+  syscall_key(keycode) {
     if (typeof keycode == 'string')
-      keycode = keycode.charCodeAt();
-    var k = this._os.keyp[keycode];
-    if (k === undefined)
-      return false;
-    else if (delay === undefined || rate === undefined)
-      return true;
-    k = this._os.frame-k;
-    return k == 0 || (k>=delay && ((k-delay)%rate == 0));
+      keycode = phKeyCodes[keycode];
+    // TODO check arg in range (string or number)
+    return bittest(this._os.iomem, 0, keycode);
   }
 
-  syscall_keyp(keycode) {
+  syscall_keyp(keycode, rate, delay) {
     if (typeof keycode == 'string')
-      keycode = keycode.charCodeAt();
-    return this._os.keyp[keycode] === this._os.frame;
+      keycode = phKeyCodes[keycode];
+    // TODO check arg in range (string or number)
+    return bittest(this._os.iomem, 0, keycode) && !bittest(this._os.iomem, 16, keycode);
   }
 
   syscall_keyr(keycode) {
     if (typeof keycode == 'string')
-      keycode = keycode.charCodeAt();
-    return this._os.keyr[keycode] !== undefined;
+      keycode = phKeyCodes[keycode];
+    // TODO check arg in range (string or number)
+    return !bittest(this._os.iomem, 0, keycode) && bittest(this._os.iomem, 16, keycode);
   }
 
   // TODO change x0 x1 to x1 x2?
@@ -770,9 +802,6 @@ module.exports = class Phosphor {
     
     os.sys._cwd = '/';
     
-    os.keyp = []; // keys pressed (key is char code, value is frame time)
-    os.keyr = []; // keys released (key is char code, value is true, for one frame)
-    
     // TEMP graphics state (not yet in memory map)
     os.c1 = 15; // primary color (index or undefined)
     os.c2 = undefined; // secondary color (index or undefined)
@@ -995,12 +1024,11 @@ module.exports = class Phosphor {
         case 3: os.vc = this.spawn('map-editor'); break;
         case 4: os.vc = this.spawn('sound-editor'); break;
         case 5: os.vc = this.spawn('music-editor'); break;
-        case 8: os.vc = this.spawn('breakout'); break;
-        case 9:
+        case 8:
           os.vc = this.spawn('terminal');
           os.vc.write('micro terminal\n\n');
           break;
-        case 10:
+        case 9:
           os.vc = this.spawn('terminal');
           os.vc.write('micro shell\n\n');
           os.vc.setProcess(this.spawn('shell'));
@@ -1016,14 +1044,6 @@ module.exports = class Phosphor {
     }
     if (os.vc.onUpdate) {
       os.frame = 0;
-      try {
-        os.vc.onUpdate();
-        os.vc.onDraw();
-      } catch (e) {
-        this.vc(0);
-        return;
-      }
-      os.frame++;
       os.interval = setInterval(() => {
         try {
           os.vc.onUpdate();
@@ -1032,9 +1052,8 @@ module.exports = class Phosphor {
           os.sys.vc(0);
           return;
         }
+        os.iomem.copyWithin(16, 0, 16);
         os.frame++;
-        if (os.keyr.length != 0)
-          os.keyr = []; // TODO performance
       }, 1000/30);
     } else {
       os.onDraw();
@@ -1102,56 +1121,43 @@ module.exports = class Phosphor {
   }
 
   onKeyDown(e) {
-    e = fixKeyEvent(e);
-    if (e.ctrlKey) {
-      if (!e.altKey && !e.metaKey && !e.shiftKey) {
-        if (e.code == 'Backquote') {
-          this.sys.vc(0); e.preventDefault(); return;
-        } else if (e.keyCode == 49) {
-          this.sys.vc(1); e.preventDefault(); return;
-        } else if (e.keyCode == 50) {
-          this.sys.vc(2); e.preventDefault(); return;
-        } else if (e.keyCode == 51) {
-          this.sys.vc(3); e.preventDefault(); return;
-        } else if (e.keyCode == 52) {
-          this.sys.vc(4); e.preventDefault(); return;
-        } else if (e.keyCode == 53) {
-          this.sys.vc(5); e.preventDefault(); return;
-        } else if (e.keyCode == 54) {
-          this.sys.vc(7); e.preventDefault(); return;
-        } else if (e.keyCode == 55) {
-          this.sys.vc(8); e.preventDefault(); return;
-        } else if (e.keyCode == 56) {
-          this.sys.vc(9); e.preventDefault(); return;
-        } else if (e.keyCode == 57) {
-          this.sys.vc(10); e.preventDefault(); return;
-        }
-      }
-      if (e.key != 'z' && e.key != 'Z')
-        return;
-    }
     if (e.key == 'Escape') {
       this.sys.vc(this.vc == this.VC[0] ? this.editor : 0);
       e.preventDefault();
-      this.onDraw();
       return;
     }
-    if (e.key.length == 1 && !e.repeat) {
-      const keycode = e.key.charCodeAt();
-      this.keyp[keycode] = this.frame;
+    if (e.ctrlKey && !e.shiftKey && e.altKey && !e.metaKey) {
+      switch (e.key) {
+        case '`': this.sys.vc(0); e.preventDefault(); return;
+        case '1': this.sys.vc(1); e.preventDefault(); return;
+        case '2': this.sys.vc(2); e.preventDefault(); return;
+        case '3': this.sys.vc(3); e.preventDefault(); return;
+        case '4': this.sys.vc(4); e.preventDefault(); return;
+        case '5': this.sys.vc(5); e.preventDefault(); return;
+        case '8': this.sys.vc(8); e.preventDefault(); return;
+        case '9': this.sys.vc(9); e.preventDefault(); return;
+        case '0': this.sys.vc(10); e.preventDefault(); return;
+      }
     }
-    if (this.vc.onKeyDown) this.vc.onKeyDown(e);
+    if (true) {
+      const code = jsKeyCodes[e.code];
+      if (code !== undefined)
+        bitset(this.iomem, 0, code);
+    }
+    if (e.ctrlKey || e.altKey || e.metaKey) {
+      return;
+    }
+    if (this.vc.onKeyDown) {
+      this.vc.onKeyDown(e);
+      this.onDraw();
+    }
     e.preventDefault();
-    this.onDraw();
   }
 
   onKeyUp(e) {
-    //e = fixKeyEvent(e);
-    if (e.key.length == 1) {
-      const keycode = e.key.charCodeAt();
-      delete this.keyp[keycode];
-      this.keyr[keycode] = true;
-    }
+    const code = jsKeyCodes[e.code];
+    if (code !== undefined)
+      bitclear(this.iomem, 0, code);
   }
 
   onMouseClick(e) {
