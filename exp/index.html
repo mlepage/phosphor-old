@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<canvas id='canvas' width='720' height='480'></canvas>
+
+<!-- https://pixelsvsbytes.com/2013/02/js-require-for-browsers-better-faster-stronger/ -->
+<script src='require.min.js'></script>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const Phosphor = Tarp.require('./phosphor.js');
+  const phosphor = new Phosphor(canvas);
+</script>
+
+<p>Switch to <a href="../">stable</a> version</p>
+
+</body>
+</html>
