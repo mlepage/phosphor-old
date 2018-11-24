@@ -406,6 +406,7 @@ module.exports = class Phosphor {
   }
 
   syscall_char(ch, x, y, c1, c2) {
+    x = floor(x), y = floor(y);
     const os = this._os, mem = os.mem, pal = os.pal;
     if (c1 != undefined || c2 != undefined) {
       os.c1 = c1;
@@ -452,6 +453,7 @@ module.exports = class Phosphor {
   // TODO rename args
   // https://en.wikipedia.org/wiki/Midpoint_circle_algorithm
   syscall_circle(x0, y0, radius, c1, c2) {
+    x0 = floor(x0), y0 = floor(y0), radius = floor(radius);
     const os = this._os, mem = os.mem, pal = os.pal;
     if (c1 != undefined || c2 != undefined) {
       os.c1 = c1;
@@ -579,6 +581,7 @@ module.exports = class Phosphor {
   // TODO change x0 x1 to x1 x2?
   // https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
   syscall_line(x0, y0, x1, y1, c) {
+    x0 = floor(x0), y0 = floor(y0), x1 = floor(x1), y1 = floor(y1);
     const os = this._os, mem = os.mem, pal = os.pal;
     if (c != undefined) {
       os.c1 = c;
@@ -646,6 +649,7 @@ module.exports = class Phosphor {
   }
 
   syscall_map(sx, sy, x, y, w, h) {
+    sx = floor(sx), sy = floor(sy), x = floor(x), y = floor(y), w = floor(w), h = floor(h);
     const x_ = x, y_ = y;
     for (y = 0; y < h; ++y)
       for (x = 0; x < w; ++x)
@@ -678,6 +682,7 @@ module.exports = class Phosphor {
   }
 
   syscall_mget(x, y) {
+    x = floor(x), y = floor(y);
     return this._os.mem[MRAM+y*96+x];
   }
 
@@ -707,6 +712,7 @@ module.exports = class Phosphor {
   }
 
   syscall_mset(x, y, n) {
+    x = floor(x), y = floor(y);
     this._os.mem[MRAM+y*96+x] = n;
   }
 
@@ -751,6 +757,7 @@ module.exports = class Phosphor {
   }
 
   syscall_pget(x, y) {
+    x = floor(x), y = floor(y);
     return pget(this._os.mem,x, y);
   }
 
@@ -764,6 +771,7 @@ module.exports = class Phosphor {
   }
 
   syscall_pset(x, y, c) {
+    x = floor(x), y = floor(y);
     const os = this._os, mem = os.mem, pal = os.pal;
     if (c != undefined) {
       os.c1 = c;
@@ -815,6 +823,7 @@ module.exports = class Phosphor {
   }
 
   syscall_rect(x, y, w, h, c1, c2) {
+    x = floor(x), y = floor(y), w = floor(w), h = floor(h);
     if (w <= 0 || h <= 0)
       return;
     const os = this._os, mem = os.mem, pal = os.pal;
@@ -942,6 +951,7 @@ module.exports = class Phosphor {
   }
 
   syscall_sget(n, x, y) {
+    x = floor(x), y = floor(y);
     const mem = this._os.mem;
     const a = SRAM+(n<<5)+(y<<2)+(x>>1), s = (x&1)<<2;
     const b = mem[a];
@@ -971,6 +981,7 @@ module.exports = class Phosphor {
   }
 
   syscall_sprite(n, x, y) {
+    x = floor(x), y = floor(y);
     const mem = this._os.mem;
     var a = SRAM+(n<<5), b;
     for (let Y = y+8; y < Y; ++y) {
@@ -983,6 +994,7 @@ module.exports = class Phosphor {
   }
 
   syscall_sset(n, x, y, c) {
+    x = floor(x), y = floor(y);
     const mem = this._os.mem;
     const a = SRAM+(n<<5)+(y<<2)+(x>>1), s = (x&1)<<2;
     const b = mem[a];
@@ -990,6 +1002,7 @@ module.exports = class Phosphor {
   }
 
   syscall_text(str, x, y, c1, c2) {
+    x = floor(x), y = floor(y);
     const len = str.length;
     for (var i = 0; i < len; ++i, x+=5) {
       this.char(str.charAt(i), x, y, c1, c2);
