@@ -161,7 +161,7 @@ module.exports = class Terminal {
     const line = this.line;
     if (ch == '\n') {
       this.write1(ch);
-      line.resolve(this.line.buffer);
+      line.resolve(line.buffer);
       delete this.line;
     } else if (ch == '\x7f') {
       if (line.pos > 0) {

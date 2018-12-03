@@ -3,7 +3,7 @@
 
 'use strict';
 
-const floor = Math.floor, random = Math.random;
+const floor = Math.floor, max = Math.max, random = Math.random;
 
 const charset =
 // Thick 8x8
@@ -87,29 +87,96 @@ module.exports = class Phosphor {
 
   constructor(canvas) {
     const mem = new Uint8Array(0x20000); // 128K
+
+    const storage = window.localStorage;
+    storage['P/'] = true;
+    storage['P/dummy'] = 0;
+    storage['P/cartA'] = 1;
+    storage['P/cartB'] = 2;
+    storage['P/list'] = 3;
+    storage['P:0'] = "practice\n";
+    storage['P:1'] = "-- file 1\nprint 'foo'\n";
+    storage['P:2'] = "-- file 2\nprint 'bar'\n";
+    storage['P:3'] = "Preludes and Nocturnes\nThe Doll's House\nDream Country\nSeason of Mists\nA Game of You\nFables and Reflections\nBrief Lives\nWorlds' End\nThe Kindly Ones\nThe Wake\n";
     
-    const file_table = []; // contains fcbs
+    const file_table = [];
     let next_fid = 1;
     
-    const process_table = []; // contains pcbs
+    const process_table = [];
     let next_pid = 1;
     
-    const vc_table = []; // contains pcbs
+    const vc_table = [];
     
     const system = process_table[0] = {
       _: {
         pid: 0,
         ppid: 0,
-        process: this,
+        program: this,
+        main_promise: false, // promise for resolving main
         fd_table: []
       }
     };
     
-    let current = null; // current pcb (can be null)
+    let current = null; // current process (can be null)
     let interval = null; // used for update (can be null)
     
     const SPECIAL = {}; // privileged cookie
     
+    // -----------------------
+    
+    const File = class File {
+      constructor(inode) {
+        this.key = `P:${inode}`;
+        this.offset = 0;
+      }
+      close() {
+        console.log('File.close', ...args);
+      }
+      async read(...args) {
+        console.log('File.read', ...args);
+        // TODO check mode
+        let s = storage[this.key].slice(this.offset);
+        if (s.length == 0)
+          return null; // eof
+        // TODO assuming read fmt 'l' (line, not including nl, nil on eof)
+        const i = s.indexOf('\n');
+        if (i != -1) {
+          s = s.slice(0, i);
+          this.offset += 1;
+        }
+        this.offset += s.length;
+        return s; // POSIX returns bytes read but string is more useful
+      }
+      seek(...args) {
+        console.log('File.seek', ...args);
+        const offset = args.shift();
+        const whence = args.shift();
+        switch (whence) {
+          case 'set':
+            this.offset = offset;
+            break;
+          case 'cur':
+            this.offset += offset;
+            break;
+          case 'end':
+            this.offset = storage[this.key].length + offset;
+            break;
+        }
+        // TODO handle errors (e.g. offset goes negative)
+        return this.offset; // POSIX returns 0 but offset is more useful
+      }
+      write(...args) {
+        console.log('File.write', ...args);
+        // TODO check mode
+        const s = storage[this.key];
+        const w = args.join('');
+        storage[this.key] = s.slice(0, this.offset) + '\0'.repeat(max(this.offset - s.length, 0))
+          + w + s.slice(this.offset + w.length);
+        this.offset += w.length;
+        return w.length;
+      }
+    };
+
     // -----------------------
     
     // TODO for now load charset here
@@ -189,9 +256,9 @@ module.exports = class Phosphor {
     let updatesNow = performance.now();
     
     const draw = () => {
-      const process = current && current._.process;
-      if (process && process.draw) {
-        process.draw();
+      const program = current && current._.program;
+      if (program && program.draw) {
+        program.draw();
       } else {
         for (let i = 0; i < 38400; ++i) {
           mem[i] = floor(random()*64);
@@ -211,9 +278,9 @@ module.exports = class Phosphor {
     }
     
     const update = () => {
-      const process = current && current._.process;
-      if (process && process.update) {
-        process.update();
+      const program = current && current._.program;
+      if (program && program.update) {
+        program.update();
       }
       
       ++updates;
@@ -235,6 +302,7 @@ module.exports = class Phosphor {
       if (e.key == 'Escape') {
         console.log('process_table', process_table);
         console.log('file_table', file_table);
+        console.log(storage);
         return;
       } else if (e.key == '`') {
         system.vc(0);
@@ -248,17 +316,17 @@ module.exports = class Phosphor {
       } else if (e.key == '~') {
         system.ps();
       }
-      const process = current && current._.process;
-      if (process && process.onKeyDown) {
-        process.onKeyDown(e);
+      const program = current && current._.program;
+      if (program && program.onKeyDown) {
+        program.onKeyDown(e);
         requestAnimationFrame(draw);
       }
     });
     
     canvas.addEventListener('pointerdown', (e) => {
-      const process = current && current._.process;
-      if (process && process.onPointerDown) {
-        process.onPointerDown(shadowPointerEvent(e));
+      const program = current && current._.program;
+      if (program && program.onPointerDown) {
+        program.onPointerDown(shadowPointerEvent(e));
         requestAnimationFrame(draw);
       }
     });
@@ -268,9 +336,9 @@ module.exports = class Phosphor {
     //});
     
     canvas.addEventListener('pointerup', (e) => {
-      const process = current && current._.process;
-      if (process && process.onPointerUp) {
-        process.onPointerUp(shadowPointerEvent(e));
+      const program = current && current._.program;
+      if (program && program.onPointerUp) {
+        program.onPointerUp(shadowPointerEvent(e));
         requestAnimationFrame(draw);
       }
     });
@@ -312,22 +380,29 @@ module.exports = class Phosphor {
       // TODO close file (handle)
     };
     
-    system.open = function(...args) {
-      if (args[0] == SPECIAL) {
-        const fcb = {
-          file: args[1],
-          async read() {
-            return this.file.read(...args);
+    system.open = function(filename, mode) {
+      console.log('system.open', filename, mode)
+      let file;
+      if (filename === SPECIAL) {
+        file = {
+          term: mode, // HACK stuff terminal object into file
+          async read(...args) {
+            return this.term.read(...args);
           },
           write(...args) {
-            this.file.write(...args);
+            this.term.write(...args);
             // TODO redraw? only if terminal is in active vc?
             requestAnimationFrame(draw);
           }
         };
-        file_table.push(fcb);
-        return this._.fd_table.push(fcb) - 1;
+      } else {
+        // TODO proper handling of filenames
+        const inode = storage[`P/${filename}`];
+        console.log('open got inode', filename, inode);
+        file = new File(inode);
       }
+      file_table.push(file);
+      return this._.fd_table.push(file) - 1;
     };
     
     system.peek = function(addr) {
@@ -343,9 +418,10 @@ module.exports = class Phosphor {
       mem[addr] = val;
     };
     
-    system.read = async function(...args) {
-      const stdin = this._.fd_table[0];
-      return stdin.read(...args);
+    system.read = async function(fd, ...args) {
+      console.log('system.read', fd, ...args);
+      const file = this._.fd_table[fd];
+      return file.read(...args);
     };
     
     // TODO implement this sensibly
@@ -361,38 +437,38 @@ module.exports = class Phosphor {
       }
     };
     
-    system.seek = function() {
-      // TODO seek (file handle)
+    system.seek = function(fd, ...args) {
+      const file = this._.fd_table[fd];
+      return file.seek(...args);
     };
     
     system.spawn = function(...args) {
       console.log('spawn', args);
       const name = args[0];
       const M = require(`./${name}.js`); // TODO does require memoize?
-      const process = new M();
-      const pid = next_pid++;
-      const pcb = Object.create(this);
-      pcb._ = {
-        pid: pid,
+      const program = new M();
+      const process = Object.create(this);
+      process._ = {
+        pid: next_pid++,
         ppid: this._.pid,
-        process: process,
+        program: program,
         fd_table: []
       };
-      process_table[pid] = pcb;
-      process.P = pcb;
+      process_table[process._.pid] = process;
+      program.P = process;
       if (name == 'terminal') {
         // Special case: use self as file descriptors
-        pcb.open(SPECIAL, process); // stdin
-        pcb.open(SPECIAL, process); // stdout
-        pcb.open(SPECIAL, process); // stderr
+        process.open(SPECIAL, program); // stdin
+        process.open(SPECIAL, program); // stdout
+        process.open(SPECIAL, program); // stderr
       } else {
         // Copy file descriptors of parent
-        pcb._.fd_table = this._.fd_table.slice();
+        process._.fd_table = this._.fd_table.slice();
       }
-      if (process.main) {
-        process.main(...args);
-      }
-      return pcb;
+      process._.main_promise = new Promise((resolve, reject) => {
+        resolve(program.main ? program.main(...args) : 0);
+      });
+      return process;
     };
     
     system.text = function(str, x, y, c1, c2) {
@@ -418,44 +494,29 @@ module.exports = class Phosphor {
       }
       if (!vc_table[id]) {
         switch (id) {
-          case 0:
-            vc_table[id] = system.spawn('terminal', 'login');
-            break;
-          case 1:
-            vc_table[id] = system.spawn('code-editor');
-            break;
-          case 2:
-            vc_table[id] = system.spawn('sprite-editor');
-            break;
-          case 3:
-            vc_table[id] = system.spawn('palette');
-            break;
-          case 4:
-            vc_table[id] = system.spawn('prog2');
-            break;
-          case 5:
-            vc_table[id] = system.spawn('proggy');
-            break;
-          case 6:
-            vc_table[id] = system.spawn('char-editor');
-            break;
-          case 10:
-            vc_table[id] = system.spawn('terminal');
-            break;
+          case 0: vc_table[id] = system.spawn('terminal', 'login'); break;
+          case 1: vc_table[id] = system.spawn('code-editor'); break;
+          case 2: vc_table[id] = system.spawn('sprite-editor'); break;
+          case 3: vc_table[id] = system.spawn('palette'); break;
+          case 4: vc_table[id] = system.spawn('prog2'); break;
+          case 5: vc_table[id] = system.spawn('proggy'); break;
+          case 6: vc_table[id] = system.spawn('char-editor'); break;
+          case 10: vc_table[id] = system.spawn('terminal'); break;
         }
       }
       current = vc_table[id];
-      if (current._.process.update) {
+      if (current._.program.update) {
+        // TODO reckon time of next update and use timer not interval
         interval = setInterval(update, 1000/58);
       } else {
         requestAnimationFrame(draw);
       }
     };
     
-    system.write = function(...args) {
-      const stdout = this._.fd_table[1];
-      stdout.write(...args);
-      // TODO what should write return?
+    system.write = function(fd, ...args) {
+      console.log('system.write', fd, ...args);
+      const file = this._.fd_table[fd];
+      return file.write(...args);
     };
     
     system.boot();
