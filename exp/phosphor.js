@@ -5,6 +5,49 @@
 
 const floor = Math.floor, max = Math.max, random = Math.random;
 
+const elements =
+`Hydrogen 1 H 1.008
+Helium 2 He 4.0026
+Lithium 3 Li 6.94
+Beryllium 4 Be 9.0122
+Boron 5 B 10.81
+Carbon 6 C 12.011
+Nitrogen 7 N 14.007
+Oxygen 8 O 15.999
+Fluorine 9 F 18.998
+Neon 10 Ne 20.180`;
+
+const tyger =
+`Tyger Tyger, burning bright,
+In the forests of the night;
+What immortal hand or eye,
+Could frame thy fearful symmetry?
+
+In what distant deeps or skies,
+Burnt the fire of thine eyes?
+On what wings dare he aspire?
+What the hand, dare seize the fire?
+
+And what shoulder, & what art,
+Could twist the sinews of thy heart?
+And when thy heart began to beat,
+What dread hand? & what dread feet?
+
+What the hammer? what the chain,
+In what furnace was thy brain?
+What the anvil? what dread grasp,
+Dare its deadly terrors clasp!
+
+When the stars threw down their spears
+And water'd heaven with their tears:
+Did he smile his work to see?
+Did he who made the Lamb make thee?
+
+Tyger Tyger burning bright,
+In the forests of the night:
+What immortal hand or eye,
+Dare frame thy fearful symmetry?`
+
 const charset =
 // Thick 8x8
 //[0,0,0,0,0,0,0,0,0,16,40,68,124,68,68,0,0,120,68,120,68,68,120,0,0,56,68,64,64,68,56,0,0,120,68,68,68,68,120,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,68,108,84,68,68,68,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,68,108,84,68,68,68,0,0,68,100,84,76,68,68,0,0,56,68,68,68,68,56,0,0,120,68,68,120,64,64,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,56,4,60,68,60,0,0,0,104,84,84,68,68,0,0,0,88,100,68,68,68,0,0,0,120,68,68,68,120,64,0,0,60,68,68,68,60,4,0,0,92,96,64,64,64,0,0,0,60,64,56,4,120,0,0,16,124,16,16,16,12,0,0,0,0,0,0,0,0,0,0,0,56,4,60,68,60,0,0,64,120,68,68,68,120,0,0,0,56,68,64,68,56,0,0,4,60,68,68,68,60,0,0,0,56,68,124,64,60,0,0,12,16,124,16,16,16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,102,110,118,102,60,0,0,8,24,56,24,24,60,0,0,60,70,12,24,48,126,0,0,60,6,28,6,70,60,0,0,4,12,28,44,126,12,0,0,126,64,124,6,70,60,0,0,60,96,124,102,102,60,0,0,126,6,12,24,24,24,0,0,60,102,60,102,102,60,0,0,60,102,102,62,6,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,24,60,102,102,126,102,0,0,124,102,124,102,102,124,0,0,60,98,96,96,98,60,0,0,124,102,102,102,102,124,0,0,126,96,120,96,96,126,0,0,126,96,120,96,96,96,0,0,60,98,96,110,102,60,0,0,102,102,126,102,102,102,0,0,60,24,24,24,24,60,0,0,60,12,12,12,76,56,0,0,102,108,120,120,108,102,0,0,96,96,96,96,96,126,0,0,99,119,127,107,99,99,0,0,102,118,126,110,102,102,0,0,60,102,102,102,102,60,0,0,124,102,102,124,96,96,0,0,60,102,102,102,108,54,0,0,124,102,102,124,102,102,0,0,62,96,60,6,6,124,0,0,126,24,24,24,24,24,0,0,102,102,102,102,102,60,0,0,102,102,102,102,60,24,0,0,99,99,107,62,54,54,0,0,102,60,24,24,60,102,0,0,102,102,60,24,24,24,0,0,126,12,24,48,96,126,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,60,6,62,102,62,0,0,96,96,124,102,102,124,0,0,0,60,96,96,96,60,0,0,6,6,62,102,102,62,0,0,0,60,102,126,96,60,0,0,14,24,62,24,24,24,0,0,0,62,102,102,62,6,60,0,96,96,124,102,102,102,0,0,24,0,56,24,24,12,0,0,12,0,28,12,12,12,120,0,96,102,108,120,108,102,0,0,56,24,24,24,24,14,0,0,0,106,127,107,107,99,0,0,0,108,118,102,102,102,0,0,0,60,102,102,102,60,0,0,0,124,102,102,124,96,96,0,0,62,102,102,62,6,6,0,0,110,112,96,96,96,0,0,0,62,96,60,6,124,0,0,48,126,48,48,48,28,0,0,0,102,102,102,102,62,0,0,0,102,102,102,60,24,0,0,0,99,107,107,62,54,0,0,0,102,60,24,60,102,0,0,0,102,102,102,62,12,120,0,0,126,12,24,48,126,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,]
@@ -88,19 +131,22 @@ module.exports = class Phosphor {
   constructor(canvas) {
     const mem = new Uint8Array(0x20000); // 128K
 
+    // TODO sanity check storage
     const storage = window.localStorage;
-    storage['P/'] = true;
-    storage['P/dummy'] = 0;
-    storage['P/cartA'] = 1;
-    storage['P/cartB'] = 2;
-    storage['P/list'] = 3;
-    storage['P:0'] = "practice\n";
-    storage['P:1'] = "-- file 1\nprint 'foo'\n";
-    storage['P:2'] = "-- file 2\nprint 'bar'\n";
-    storage['P:3'] = "Preludes and Nocturnes\nThe Doll's House\nDream Country\nSeason of Mists\nA Game of You\nFables and Reflections\nBrief Lives\nWorlds' End\nThe Kindly Ones\nThe Wake\n";
-    
+    if (storage['P/'] === undefined)
+      storage['P/'] = true;
+    if (storage['P.next_inode'] === undefined)
+      storage['P.next_inode'] = 0;
+
+    // TEMP some filesystem contents
+    storage['P/elements'] = 0;
+    storage['P:0'] = elements;
+    storage['P/tyger'] = 1;
+    storage['P:1'] = tyger;
+    if (storage['P.next_inode'] < 2)
+      storage['P.next_inode'] = 2;
+
     const file_table = [];
-    let next_fid = 1;
     
     const process_table = [];
     let next_pid = 1;
@@ -112,7 +158,7 @@ module.exports = class Phosphor {
         pid: 0,
         ppid: 0,
         program: this,
-        main_promise: false, // promise for resolving main
+        main_promise: null, // promise for resolving main
         fd_table: []
       }
     };
@@ -380,6 +426,15 @@ module.exports = class Phosphor {
       // TODO close file (handle)
     };
     
+    system.ls = function() {
+      console.log('system.ls');
+      const list = [];
+      for (var key in storage)
+        if (storage.hasOwnProperty(key) && /^P\/[^\/]+$/.test(key))
+          list.push(key.slice(2));
+      return list;
+    }
+    
     system.open = function(filename, mode) {
       console.log('system.open', filename, mode)
       let file;
@@ -396,8 +451,15 @@ module.exports = class Phosphor {
           }
         };
       } else {
-        // TODO proper handling of filenames
-        const inode = storage[`P/${filename}`];
+        if (/[\0/]/.test(filename))
+          return -1;
+        let inode = storage[`P/${filename}`];
+        if (inode == undefined) {
+          inode = storage['P.next_inode'];
+          storage['P.next_inode'] = parseInt(inode) + 1;
+          storage[`P:${inode}`] = '';
+          storage[`P/${filename}`] = inode;
+        }
         console.log('open got inode', filename, inode);
         file = new File(inode);
       }

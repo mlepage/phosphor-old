@@ -101,12 +101,23 @@ module.exports = class Shell {
     this.P.write(1, helptext);
   }
 
-  async builtin_iotest(...args) {
-    return this.P.spawn(...args)._.main_promise;
+  async builtin_load(...args) {
+    // TODO
+  }
+
+  async builtin_ls(...args) {
+    const P = this.P;
+    const list = P.ls();
+    for (let i = 0; i < list.length; ++i)
+      P.write(0, list[i], '\n');
   }
 
   async builtin_lua(...args) {
     return this.P.spawn(...args)._.main_promise;
+  }
+
+  async builtin_rm(...args) {
+    // TODO
   }
 
   async builtin_run() {

@@ -125,7 +125,7 @@ const init =
   --end
 
   function io.open(...)
-    local fd = P.open(nil, ...)
+    local fd = P_open(nil, ...)
     if fd == -1 then
       return nil, 'error'
     end
@@ -192,16 +192,14 @@ module.exports = class Lua {
     const P = this.P;
     initState(L, P);
 
-    const code = `f=io.open('list', 'r+')
-      print(f:seek('cur', 1000))
-      f:write('QWERTY')
-      f:seek('set', 0)
-      i=1
+    const code = `f=io.open((...), 'r+')
+      --f:seek('cur', 10)
+      --f:write('QWERTY')
+      --f:seek('set', 0)
       while true do
         a=f:read('l')
         if a == nil then break end
-        print(i, a)
-        i=i+1
+        print(a)
       end`;
 
     try {
