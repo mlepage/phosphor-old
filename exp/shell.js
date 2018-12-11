@@ -19,11 +19,11 @@ module.exports = class Shell {
     // TODO find best way to create aliases for builtins
     const p = Object.getPrototypeOf(this);
     p.builtin_cat = p.builtin_show;
-    p.builtin_del = p.builtin_remove;
-    p.builtin_delete = p.builtin_remove;
+    p.builtin_del = p.builtin_delete;
     p.builtin_dir = p.builtin_list;
     p.builtin_ls = p.builtin_list;
-    p.builtin_rm = p.builtin_remove;
+    p.builtin_remove = p.builtin_delete;
+    p.builtin_rm = p.builtin_delete;
   }
 
   async main(...args) {
@@ -55,65 +55,96 @@ module.exports = class Shell {
     const builtin = `builtin_${args[0]}`;
     if (this[builtin])
       return this[builtin](...args);
-    this.P.write(1, 'command not found\n');
+    this.P.write(1, '\x1bCcommand not found\x1bA\n');
+  }
+
+  async builtin_delete(...args) {
+    // TODO
   }
 
   async builtin_help(...args) {
     this.P.write(1, helptext);
   }
 
-  async builtin_load(...args) {
-    args.shift();
-    const r = this.P.load(...args);
-    if (r == -1)
-      this.P.write(1, `${args[0]}: no such program\n`);
-  }
-
   async builtin_list(...args) {
     const P = this.P;
+    args.shift();
+    if (args.length != 0) {
+      P.write(1, '\x1bCtoo many files specified\x1A\n');
+      return;
+    }
     const list = P.ls();
     for (let i = 0; i < list.length; ++i)
       P.write(0, list[i], '\n');
   }
 
-  async builtin_lua(...args) {
-    return this.P.spawn(...args)._.main_promise;
+  async builtin_load(...args) {
+    const P = this.P;
+    args.shift();
+    if (args.length != 1) {
+      P.write(1, args.length == 0 ? '\x1bCno program specified\x1A\n'
+                                  : '\x1bCtoo many programs specified\x1A\n');
+      return;
+    }
+    const r = P.load(args[0]);
+    P.write(1, r == 0 ? '\x1bBprogram loaded\x1bA\n'
+                      : '\x1bCno such program\x1bA\n');
   }
 
-  async builtin_remove(...args) {
+  async builtin_lua(...args) {
+    const P = this.P;
+    args.shift();
+    if (args.length < 1) {
+      P.write(1, '\x1bCno script specified\x1A\n');
+      return;
+    }
+    return P.spawn(...args)._.main_promise;
+  }
+
+  async builtin_new(...args) {
     // TODO
   }
 
-  async builtin_run() {
+  async builtin_run(...args) {
     const P = this.P;
+    args.shift();
+    if (args.length != 0) {
+      P.write(1, '\x1bCtoo many programs specified\x1A\n');
+      return;
+    }
     return P.spawn('lua', P.load())._.main_promise;
+  }
+
+  async builtin_save(...args) {
+    // TODO
   }
 
   async builtin_show(...args) {
     const P = this.P;
     args.shift();
+    if (args.length != 1) {
+      P.write(1, args.length == 0 ? '\x1bCno file specified\x1A\n'
+                                  : '\x1bCtoo many files specified\x1A\n');
+      return;
+    }
+    const fd = P.open(args[0], 'r');
+    if (fd == -1) {
+      P.write(1, '\x1bCno such file\x1bA\n');
+      return;
+    }
+    // TODO read entire file ('a')
     while (true) {
-      const filename = args.shift();
-      if (!filename)
+      const line = await P.read(fd);
+      if (!line)
         break;
-      const fd = P.open(filename, 'r');
-      if (fd == -1) {
-        P.write(1, `${filename}: no such file\n`);
-        continue;
-      }
-      // TODO read entire file ('a')
-      while (true) {
-        const line = await P.read(fd);
-        if (!line)
-          break;
-        P.write(1, line, '\n');
-      }
+      P.write(1, line, '\n');
     }
   }
 
   async builtin_test() {
     const P = this.P;
-    switch(Math.floor(Math.random()*5)) {
+    const n = Math.floor(Math.random()*5);
+    switch (n) {
       case 0:
         P.write(1, '\x1bAwhite  \x1bBgreen  \x1bCamber  \x1bDred  \x1bA\n');
         break;
