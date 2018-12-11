@@ -186,24 +186,33 @@ function initState(L, P) {
 module.exports = class Lua {
 
   async main(...args) {
+    const P = this.P;
     args.shift();
 
+    // TODO read entire file ('a')
+    const scriptname = args.shift();
+    if (!scriptname) {
+      console.log('NO SCRIPT');
+      return; // TODO handle error
+    }
+    const fd = P.open(scriptname, 'r');
+    if (fd == -1) {
+      console.log('SCRIPT NOT FOUND');
+      return; // TODO handle error
+    }
+    let script = '';
+    while (true) {
+      const line = await P.read(fd);
+      if (!line)
+        break;
+      script += line + '\n';
+    }
+
     const L = new luavm.Lua.State();
-    const P = this.P;
     initState(L, P);
 
-    const code = `f=io.open((...), 'r+')
-      --f:seek('cur', 10)
-      --f:write('QWERTY')
-      --f:seek('set', 0)
-      while true do
-        a=f:read('l')
-        if a == nil then break end
-        print(a)
-      end`;
-
     try {
-      L.execute(`__co = coroutine.create(...)`, L.load(code));
+      L.execute(`__co = coroutine.create(...)`, L.load(script));
     } catch (e) {
       P.write(1, e.message.match(/^\[string ".*"\]:(\d+: .*)$/)[1], '\n');
       return;

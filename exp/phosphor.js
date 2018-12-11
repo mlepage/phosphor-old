@@ -5,7 +5,8 @@
 
 const floor = Math.floor, max = Math.max, random = Math.random;
 
-const elements =
+const image = {
+elements:
 `Hydrogen 1 H 1.008
 Helium 2 He 4.0026
 Lithium 3 Li 6.94
@@ -15,9 +16,8 @@ Carbon 6 C 12.011
 Nitrogen 7 N 14.007
 Oxygen 8 O 15.999
 Fluorine 9 F 18.998
-Neon 10 Ne 20.180`;
-
-const tyger =
+Neon 10 Ne 20.180`,
+tyger:
 `Tyger Tyger, burning bright,
 In the forests of the night;
 What immortal hand or eye,
@@ -46,7 +46,34 @@ Did he who made the Lamb make thee?
 Tyger Tyger burning bright,
 In the forests of the night:
 What immortal hand or eye,
-Dare frame thy fearful symmetry?`
+Dare frame thy fearful symmetry?`,
+hello:
+`print 'hello world'`,
+goodbye:
+`print 'goodbye cruel world'`,
+lshow:
+`f=io.open((...), 'r')
+while true do
+  a=f:read('l')
+  if a == nil then break end
+  print(a)
+end`
+};
+
+function initStorage(storage) {
+  if (storage['P/'])
+    return;
+  storage['P/'] = true;
+  let next_inode = 0;
+  for (let key in image) {
+    if (image.hasOwnProperty(key)) {
+      storage[`P/${key}`] = next_inode;
+      storage[`P:${next_inode}`] = image[key];
+      ++next_inode;
+    }
+  }
+  storage['P.next_inode'] = next_inode;
+}
 
 const charset =
 // Thick 8x8
@@ -131,20 +158,8 @@ module.exports = class Phosphor {
   constructor(canvas) {
     const mem = new Uint8Array(0x20000); // 128K
 
-    // TODO sanity check storage
     const storage = window.localStorage;
-    if (storage['P/'] === undefined)
-      storage['P/'] = true;
-    if (storage['P.next_inode'] === undefined)
-      storage['P.next_inode'] = 0;
-
-    // TEMP some filesystem contents
-    storage['P/elements'] = 0;
-    storage['P:0'] = elements;
-    storage['P/tyger'] = 1;
-    storage['P:1'] = tyger;
-    if (storage['P.next_inode'] < 2)
-      storage['P.next_inode'] = 2;
+    initStorage(storage);
 
     const file_table = [];
     
@@ -166,6 +181,8 @@ module.exports = class Phosphor {
     let current = null; // current process (can be null)
     let interval = null; // used for update (can be null)
     
+    let loaded = null; // name of loaded program (can be null)
+
     const SPECIAL = {}; // privileged cookie
     
     // -----------------------
@@ -426,10 +443,28 @@ module.exports = class Phosphor {
       // TODO close file (handle)
     };
     
+    // load() --> returns loaded name
+    // load(name) --> loads program, returns 0 if successful, -1 if failure
+    // load(null) --> unloads back to blank
+    system.load = function(filename) {
+      if (filename === undefined) {
+        for (let i = 0; !loaded; ++i) {
+          let name = (i == 0) ? 'untitled' : `untitled-${i}`;
+          if (!storage[`P/${name}`])
+            loaded = name;
+        }
+        return loaded;
+      }
+      if (!storage[`P/${filename}`])
+        return -1;
+      loaded = filename;
+      return 0;
+    };
+    
     system.ls = function() {
       console.log('system.ls');
       const list = [];
-      for (var key in storage)
+      for (let key in storage)
         if (storage.hasOwnProperty(key) && /^P\/[^\/]+$/.test(key))
           list.push(key.slice(2));
       return list;
@@ -455,6 +490,8 @@ module.exports = class Phosphor {
           return -1;
         let inode = storage[`P/${filename}`];
         if (inode == undefined) {
+          if (mode == 'r')
+            return -1; // TODO handle mode properly
           inode = storage['P.next_inode'];
           storage['P.next_inode'] = parseInt(inode) + 1;
           storage[`P:${inode}`] = '';
